@@ -1,0 +1,8 @@
+.claude/graphify/
+.playwright-mcp/
+.claude/launch.json
+.claude/napkin.md
+__pycache__/
+*.pyc
+.venv/
+.env

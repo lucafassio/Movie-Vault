@@ -1,0 +1,603 @@
+/* lomos estilo caja de dvd, caja abierta estilo pixel con papel enganchado, y piezas de la secuencia de impresion */
+
+/* ---- lomos ---- */
+
+.spine {
+  position: relative;
+  height: 182px;
+  flex-shrink: 0;
+  --tilt: 0deg;
+  border: 4px solid var(--outline);
+  border-radius: 3px 3px 2px 2px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.0) 22%, rgba(0, 0, 0, 0.0) 55%, rgba(0, 0, 0, 0.28) 100%),
+    var(--spine-color, #5a4a6a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(var(--tilt));
+  transform-origin: 100% 100%;
+  transition: transform 0.45s var(--ease-camera), filter 0.25s ease;
+  cursor: pointer;
+}
+
+/* banda superior e inferior como las cajas de dvd reales */
+.spine::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18px;
+  background: rgba(20, 12, 16, 0.35);
+  border-bottom: 3px solid rgba(20, 12, 16, 0.5);
+}
+
+.spine::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 12px;
+  background: rgba(20, 12, 16, 0.28);
+  border-top: 3px solid rgba(20, 12, 16, 0.45);
+}
+
+.spine.tilted {
+  --tilt: -7deg;
+  margin-left: 10px;
+}
+
+.spine:hover,
+.spine:focus-visible {
+  transform: rotate(var(--tilt)) translateY(-12px);
+  filter: brightness(1.18);
+  outline: none;
+  z-index: 3;
+}
+
+/* titulo vertical de arriba a abajo con el pie de las letras a la izquierda, admite dos renglones */
+.spine-title {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  line-height: 1.12;
+  white-space: normal;
+  color: rgba(243, 233, 215, 0.95);
+  max-height: 128px;
+  overflow: hidden;
+  text-align: center;
+  text-shadow: 1px 1px 0 rgba(20, 12, 16, 0.6);
+  pointer-events: none;
+  margin-bottom: 10px;
+}
+
+/* cinta de papel pegada con el puntaje personal */
+.spine-tape {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-5deg);
+  min-width: 30px;
+  padding: 0 4px 1px;
+  background: var(--tape);
+  border: 2px solid rgba(36, 26, 32, 0.55);
+  clip-path: polygon(3% 12%, 97% 0%, 100% 88%, 94% 100%, 4% 96%, 0% 78%);
+  font-family: var(--font-hand);
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.15;
+  color: #4a3a20;
+  text-align: center;
+  pointer-events: none;
+}
+
+.spine.is-open {
+  visibility: hidden;
+}
+
+.spine.just-added {
+  animation: spine-pop 0.55s var(--ease-camera);
+}
+
+@keyframes spine-pop {
+  0% { transform: rotate(var(--tilt)) translateY(-30px); filter: brightness(1.5); }
+  60% { transform: rotate(var(--tilt)) translateY(4px); }
+  100% { transform: rotate(var(--tilt)) translateY(0); filter: brightness(1); }
+}
+
+/* ---- overlay de caja abierta ---- */
+
+#case-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  --case-h: min(78vh, 60vw);
+  --case-w: calc(var(--case-h) / 1.38);
+}
+
+#case-overlay[hidden] {
+  display: none;
+}
+
+.case-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(24, 17, 28, 0.0);
+  backdrop-filter: blur(0px);
+  transition: background var(--dur-case) ease, backdrop-filter var(--dur-case) ease;
+}
+
+#case-overlay.arrived .case-backdrop {
+  background: rgba(24, 17, 28, 0.66);
+  backdrop-filter: blur(3px);
+}
+
+.case-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 2400px;
+}
+
+.case-flip {
+  transition: transform var(--dur-case) var(--ease-camera);
+  will-change: transform;
+}
+
+.case-shift {
+  transition: transform var(--dur-case) var(--ease-camera);
+  transform-style: preserve-3d;
+}
+
+#case-overlay.open .case-shift {
+  transform: translateX(calc(var(--case-w) / 2));
+}
+
+.case3d {
+  position: relative;
+  width: var(--case-w);
+  height: var(--case-h);
+  transform-style: preserve-3d;
+}
+
+/* ---- mitad derecha: bandeja con el disco ---- */
+
+.case-tray {
+  position: absolute;
+  inset: 0;
+  border: 6px solid var(--outline);
+  border-radius: 8px 22px 22px 8px;
+  background: linear-gradient(120deg, #463539 0%, var(--case-shell) 45%, var(--case-shell-dark) 100%);
+  box-shadow: 0 26px 70px rgba(10, 6, 12, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tray-lip {
+  position: absolute;
+  inset: 3.5% 4.5%;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 3px rgba(20, 12, 16, 0.55), inset 0 10px 26px rgba(10, 6, 12, 0.5);
+}
+
+.disc {
+  position: relative;
+  width: 84%;
+  aspect-ratio: 1;
+}
+
+.disc svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 8px 18px rgba(10, 6, 12, 0.55));
+}
+
+.disc .disc-wedges {
+  transform-origin: 50% 50%;
+  animation: disc-spin 12s linear infinite;
+}
+
+@keyframes disc-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* bisagra central de la caja */
+.case-hinge {
+  position: absolute;
+  left: -7px;
+  top: 4%;
+  bottom: 4%;
+  width: 14px;
+  background: var(--case-shell-dark);
+  border: 4px solid var(--outline);
+  border-radius: 4px;
+}
+
+/* traba inferior izquierda como en la referencia, va en la tapa asi viaja con ella al abrir */
+.case-latch {
+  position: absolute;
+  left: -3%;
+  bottom: 3%;
+  width: 15%;
+  height: 9%;
+  background: linear-gradient(180deg, #544a5e 0%, #3a333f 100%);
+  border: 5px solid var(--outline);
+  border-radius: 10px;
+}
+
+.case-latch::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  top: 26%;
+  width: 34%;
+  height: 40%;
+  background: #6b6273;
+  border: 3px solid var(--outline);
+  border-radius: 4px;
+}
+
+/* ---- tapa que rota sobre la bisagra izquierda ---- */
+
+.case-cover {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition: transform var(--dur-case) var(--ease-camera);
+}
+
+#case-overlay.open .case-cover {
+  transform: rotateY(-180deg);
+}
+
+.cover-front,
+.cover-inside {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border: 6px solid var(--outline);
+  border-radius: 22px 8px 8px 22px;
+}
+
+.cover-front {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.0) 14%, rgba(255, 255, 255, 0.12) 50%, rgba(0, 0, 0, 0.25) 100%),
+    var(--spine-color, #5a4a6a);
+  box-shadow: 0 26px 70px rgba(10, 6, 12, 0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4%;
+  padding: 9%;
+}
+
+.cover-front::before {
+  content: "";
+  position: absolute;
+  inset: 5%;
+  border: 3px solid rgba(243, 233, 215, 0.3);
+  border-radius: 12px;
+}
+
+.front-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(var(--case-h) * 0.055);
+  text-align: center;
+  color: var(--ink);
+  text-shadow: 2px 2px 0 rgba(20, 12, 16, 0.55);
+}
+
+.front-brand {
+  font-family: var(--font-pixel);
+  font-size: calc(var(--case-h) * 0.028);
+  letter-spacing: 5px;
+  color: rgba(243, 233, 215, 0.6);
+}
+
+/* interior de la tapa: plastico de la caja con el papel impreso enganchado */
+.cover-inside {
+  transform: rotateY(180deg);
+  background: linear-gradient(250deg, #463539 0%, var(--case-shell) 45%, var(--case-shell-dark) 100%);
+  box-shadow: 0 26px 70px rgba(10, 6, 12, 0.65);
+}
+
+.cover-inside .inside-lip {
+  position: absolute;
+  inset: 3.5% 4.5%;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 3px rgba(20, 12, 16, 0.55), inset 0 10px 26px rgba(10, 6, 12, 0.5);
+}
+
+/* el papel no cubre toda la mitad, queda enganchado con margen de caja visible */
+.case-paper {
+  position: absolute;
+  inset: 5.5% 7%;
+  transform: rotate(-1.2deg);
+  background:
+    radial-gradient(ellipse at 85% 8%, rgba(51, 40, 28, 0.10) 0%, transparent 45%),
+    linear-gradient(160deg, #f0e0b4 0%, var(--paper) 45%, var(--paper-dark) 100%);
+  border: 3px solid rgba(51, 40, 28, 0.55);
+  border-radius: 4px;
+  box-shadow: 4px 6px 14px rgba(10, 6, 12, 0.45);
+  color: var(--paper-ink);
+  font-size: calc(var(--case-h) * 0.023);
+  overflow: hidden;
+}
+
+/* ganchos que sostienen el papel contra la tapa */
+.paper-clip {
+  position: absolute;
+  width: 9%;
+  height: 4%;
+  background: #544a5e;
+  border: 4px solid var(--outline);
+  border-radius: 6px;
+  z-index: 4;
+}
+
+.paper-clip-top { left: 10%; top: 4%; }
+.paper-clip-bottom { left: 10%; bottom: 4%; }
+.paper-clip-right { right: 10%; top: 4%; }
+
+.booklet {
+  position: absolute;
+  inset: 5% 6%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(51, 40, 28, 0.4) transparent;
+  padding-right: 2%;
+}
+
+.booklet-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(var(--case-h) * 0.049);
+  line-height: 1.05;
+  margin-bottom: 0.35em;
+  padding-right: 20%;
+}
+
+.booklet-tape {
+  position: absolute;
+  top: 2.5%;
+  right: 3.5%;
+  padding: 0 0.5em 0.08em;
+  background: var(--tape);
+  border: 2px solid rgba(51, 40, 28, 0.5);
+  clip-path: polygon(3% 12%, 97% 0%, 100% 88%, 94% 100%, 4% 96%, 0% 78%);
+  transform: rotate(5deg);
+  font-family: var(--font-hand);
+  font-weight: 700;
+  font-size: calc(var(--case-h) * 0.052);
+  color: #4a3a20;
+  z-index: 3;
+}
+
+.booklet-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45em;
+  margin-bottom: 1em;
+}
+
+.genre-chip {
+  font-family: var(--font-pixel);
+  font-size: 0.95em;
+  padding: 0.02em 0.7em 0.12em;
+  border: 2px solid rgba(51, 40, 28, 0.6);
+  border-radius: 999px;
+  background: rgba(51, 40, 28, 0.06);
+}
+
+.booklet-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5em 1.2em;
+  margin-bottom: 1em;
+}
+
+.meta-item .meta-label {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 0.82em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(51, 40, 28, 0.55);
+}
+
+.meta-item .meta-value {
+  font-weight: 700;
+}
+
+.booklet-section {
+  font-family: var(--font-pixel);
+  font-size: 0.82em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(51, 40, 28, 0.55);
+  margin: 1.2em 0 0.3em;
+}
+
+.booklet-actors {
+  list-style: none;
+}
+
+.booklet-actors li {
+  padding: 0.14em 0;
+  border-bottom: 2px dashed rgba(51, 40, 28, 0.25);
+}
+
+.booklet-review {
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.booklet-link {
+  display: inline-block;
+  margin: 1em 0 0.4em;
+  font-family: var(--font-pixel);
+  font-size: 1em;
+  color: #7a4a12;
+}
+
+.case-close {
+  position: absolute;
+  top: 74px;
+  right: 28px;
+  z-index: 5;
+  padding: 6px 16px 8px;
+  font-family: var(--font-pixel);
+  font-size: 20px;
+  color: var(--ink);
+  background: rgba(36, 26, 32, 0.85);
+  border: 3px solid var(--outline);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+#case-overlay.arrived .case-close {
+  opacity: 1;
+}
+
+/* ---- secuencia de impresion: caja abierta sobre el escritorio ---- */
+
+.mini-case {
+  position: absolute;
+  left: 700px;
+  top: 522px;
+  width: 236px;
+  height: 168px;
+  z-index: 26;
+  perspective: 900px;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.4s ease, transform 0.4s var(--ease-camera);
+}
+
+.mini-case.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mc-half {
+  position: absolute;
+  top: 0;
+  width: 112px;
+  height: 164px;
+  border: 5px solid var(--outline);
+  background: linear-gradient(140deg, #463539 0%, var(--case-shell-dark) 100%);
+}
+
+.mc-right {
+  right: 0;
+  border-radius: 4px 12px 12px 4px;
+}
+
+.mc-right .mc-disc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78px;
+  height: 78px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #544a5e 0%, #544a5e 16%, #d9dde4 17%, #b3b8c4 55%, #c9ccd4 100%);
+  border: 4px solid var(--outline);
+}
+
+.mc-left {
+  left: 0;
+  border-radius: 12px 4px 4px 12px;
+  transform-origin: right center;
+  transform-style: preserve-3d;
+  transition: transform 0.65s var(--ease-camera);
+  z-index: 2;
+}
+
+.mini-case.closing .mc-left {
+  transform: rotateY(-180deg);
+}
+
+.mc-face {
+  position: absolute;
+  inset: -5px;
+  backface-visibility: hidden;
+  border: 5px solid var(--outline);
+}
+
+.mc-face-inside {
+  border-radius: 12px 4px 4px 12px;
+  background: linear-gradient(140deg, #463539 0%, var(--case-shell-dark) 100%);
+}
+
+.mc-face-inside .mc-paper {
+  position: absolute;
+  inset: 9% 10%;
+  background: var(--paper);
+  border: 3px solid rgba(51, 40, 28, 0.55);
+  opacity: 0;
+}
+
+.mini-case.paper-in .mc-face-inside .mc-paper {
+  opacity: 1;
+}
+
+.mc-paper .pp-lines {
+  position: absolute;
+  inset: 10% 12%;
+  background: repeating-linear-gradient(180deg, rgba(51, 40, 28, 0.45) 0 3px, transparent 3px 11px);
+}
+
+.mc-face-cover {
+  transform: rotateY(180deg);
+  border-radius: 4px 12px 12px 4px;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.3) 0%, rgba(255, 255, 255, 0.14) 50%, rgba(0, 0, 0, 0.2) 100%),
+    var(--spine-color, #5a4a6a);
+}
+
+/* papel volador entre impresora y caja */
+.fly-paper {
+  position: absolute;
+  width: 120px;
+  height: 100px;
+  background: var(--paper);
+  border: 4px solid var(--outline);
+  border-radius: 2px;
+  z-index: 27;
+  overflow: hidden;
+}
+
+.fly-paper .pp-lines {
+  position: absolute;
+  inset: 10px 12px;
+  background: repeating-linear-gradient(180deg, rgba(51, 40, 28, 0.5) 0 3px, transparent 3px 12px);
+}
+
+/* ---- caja cerrada que vuela al estante ---- */
+
+.flyer {
+  position: absolute;
+  border: 4px solid var(--outline);
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0%, rgba(0, 0, 0, 0.28) 100%),
+    var(--spine-color, #5a4a6a);
+  box-shadow: 0 12px 30px rgba(10, 6, 12, 0.55);
+  z-index: 26;
+  pointer-events: none;
+}
