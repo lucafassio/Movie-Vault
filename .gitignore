@@ -2,6 +2,8 @@
 .playwright-mcp/
 .claude/launch.json
 .claude/napkin.md
+renders/wip/
+*.blend1
 __pycache__/
 *.pyc
 .venv/

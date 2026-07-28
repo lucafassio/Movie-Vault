@@ -1,4 +1,4 @@
-// estanteria: renderiza los lomos estilo caja de dvd y maneja la caja que sale del estante y se abre
+// estanteria: renderiza los lomos estilo caja de dvd sobre la imagen fija y maneja la caja abierta en sus dos modos, lectura y alta
 
 window.MV = window.MV || {};
 
@@ -18,11 +18,11 @@ MV.shelf = (function () {
     "horror": 172
   };
 
-  const shelfZone = document.getElementById("shelf-zone");
-  const strips = Array.prototype.slice.call(shelfZone.querySelectorAll(".spine-strip"));
+  const strips = Array.prototype.slice.call(document.querySelectorAll(".spine-strip"));
+  const overflowPanel = document.querySelector('.shelf-panel[data-row="2"]');
   const overlay = document.getElementById("case-overlay");
 
-  const STRIP_WIDTH = 636;
+  const STRIP_WIDTH = 822;
   const SPINE_GAP = 4;
 
   let onSpineClick = null;
@@ -123,14 +123,17 @@ MV.shelf = (function () {
     // la ultima caja acomodada queda levemente inclinada, como recien apoyada
     if (lastSpineEl) lastSpineEl.classList.add("tilted");
 
-    // los libros decorativos del estante de abajo se esconden cuando la coleccion desborda hasta ahi
-    const bottomRow = strips[strips.length - 1].parentElement;
-    bottomRow.querySelector(".lean-books").style.display = strips[strips.length - 1].children.length ? "none" : "flex";
+    // el estante de abajo tiene libros pintados en la imagen, el panel que los tapa solo aparece cuando la coleccion desborda hasta ahi
+    overflowPanel.classList.toggle("in-use", strips[2].children.length > 0);
   }
 
   function lastSpine() {
-    const spines = shelfZone.querySelectorAll(".spine");
-    return spines[spines.length - 1] || null;
+    let found = null;
+    strips.forEach(function (strip) {
+      const spines = strip.querySelectorAll(".spine");
+      if (spines.length) found = spines[spines.length - 1];
+    });
+    return found;
   }
 
   function discSvg() {
@@ -157,16 +160,63 @@ MV.shelf = (function () {
     return '<div class="meta-item"><span class="meta-label">' + label + '</span><span class="meta-value">' + escapeHtml(value) + "</span></div>";
   }
 
-  function buildOverlayContent(movie) {
-    const actors = (movie.actors || []).slice(0, 4).map(function (actor) {
-      return "<li>" + escapeHtml(actor) + "</li>";
-    }).join("");
-
+  function bookletView(movie) {
     const genreList = (movie.genres || "").split("-").map(function (genre) { return genre.trim(); });
     const genres = genreList.map(function (genre) {
       return '<span class="genre-chip">' + escapeHtml(genre) + "</span>";
     }).join("");
 
+    return (
+      '<span class="booklet-tape">' + escapeHtml(movie.personalRating.toFixed(1)) + "</span>" +
+      '<div class="booklet">' +
+        '<h2 class="booklet-title">' + escapeHtml(movie.title) + "</h2>" +
+        '<div class="booklet-genres">' + genres + "</div>" +
+        '<div class="booklet-meta">' +
+          metaItem("estreno", movie.releaseDate) +
+          metaItem("duracion", movie.duration) +
+          metaItem("imdb", movie.imdbRating) +
+          metaItem("clasificacion", movie.parental) +
+          metaItem("vista", movie.watchedDate) +
+          metaItem("pais", movie.country) +
+        "</div>" +
+        '<div class="booklet-section">review</div>' +
+        '<p class="booklet-review">' + escapeHtml(movie.review) + "</p>" +
+        '<a class="booklet-link" href="' + encodeURI(movie.imdbLink) + '" target="_blank" rel="noopener">ver en imdb &rarr;</a>' +
+      "</div>"
+    );
+  }
+
+  function bookletForm(movie) {
+    const genreList = (movie.genres || "").split("-").map(function (genre) { return genre.trim(); });
+    const genres = genreList.map(function (genre) {
+      return '<span class="genre-chip">' + escapeHtml(genre) + "</span>";
+    }).join("");
+
+    return (
+      '<span class="booklet-tape booklet-tape-pending">?</span>' +
+      '<div class="booklet">' +
+        '<h2 class="booklet-title">' + escapeHtml(movie.title) + "</h2>" +
+        '<div class="booklet-genres">' + genres + "</div>" +
+        '<div class="booklet-meta">' +
+          metaItem("estreno", movie.releaseDate) +
+          metaItem("duracion", movie.duration) +
+          metaItem("imdb", movie.imdbRating) +
+          metaItem("clasificacion", movie.parental) +
+        "</div>" +
+        '<div class="booklet-section">tu ficha</div>' +
+        '<div class="case-field"><label for="case-date">fecha en la que la viste</label><input id="case-date" type="text" placeholder="dd/mm/aaaa" spellcheck="false"></div>' +
+        '<div class="case-field"><label for="case-rating">tu puntaje (0 a 10)</label><input id="case-rating" type="number" min="0" max="10" step="0.1" placeholder="7.5"></div>' +
+        '<div class="case-field"><label for="case-review">review</label><textarea id="case-review" placeholder="que te parecio..."></textarea></div>' +
+        '<div class="case-actions">' +
+          '<button class="case-btn case-cancel-btn" type="button">&larr; buscar otra</button>' +
+          '<button class="case-btn case-btn-primary case-save-btn" type="button">guardar en la estanteria</button>' +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function buildOverlayContent(movie, mode) {
+    const paper = mode === "edit" ? bookletForm(movie) : bookletView(movie);
     overlay.innerHTML =
       '<div class="case-backdrop"></div>' +
       '<div class="case-wrap">' +
@@ -186,27 +236,7 @@ MV.shelf = (function () {
                 '<div class="cover-inside">' +
                   '<div class="inside-lip"></div>' +
                   '<div class="case-latch"></div>' +
-                  '<div class="case-paper">' +
-                    '<span class="booklet-tape">' + escapeHtml(movie.personalRating.toFixed(1)) + "</span>" +
-                    '<div class="booklet">' +
-                      '<h2 class="booklet-title">' + escapeHtml(movie.title) + "</h2>" +
-                      '<div class="booklet-genres">' + genres + "</div>" +
-                      '<div class="booklet-meta">' +
-                        metaItem("estreno", movie.releaseDate) +
-                        metaItem("duracion", movie.duration) +
-                        metaItem("imdb", movie.imdbRating) +
-                        metaItem("clasificacion", movie.parental) +
-                        metaItem("vista", movie.watchedDate) +
-                        metaItem("genero", genreList[0] || "-") +
-                        metaItem("pais", movie.country) +
-                      "</div>" +
-                      '<div class="booklet-section">elenco</div>' +
-                      '<ul class="booklet-actors">' + actors + "</ul>" +
-                      '<div class="booklet-section">review</div>' +
-                      '<p class="booklet-review">' + escapeHtml(movie.review) + "</p>" +
-                      '<a class="booklet-link" href="' + encodeURI(movie.imdbLink) + '" target="_blank" rel="noopener">ver en imdb &rarr;</a>' +
-                    "</div>" +
-                  "</div>" +
+                  '<div class="case-paper">' + paper + "</div>" +
                   '<span class="paper-clip paper-clip-top"></span>' +
                   '<span class="paper-clip paper-clip-bottom"></span>' +
                 "</div>" +
@@ -218,34 +248,41 @@ MV.shelf = (function () {
       '<button class="case-close">cerrar</button>';
   }
 
-  function flipTransformFor(spineEl, flipEl) {
-    // la caja arranca exactamente en el rect del lomo en pantalla y viaja al centro
-    const spineRect = spineEl.getBoundingClientRect();
+  function rectCenterTransform(target, flipEl) {
+    // la caja arranca o termina exactamente en un rect de pantalla y viaja desde o hacia el centro
     const flipRect = flipEl.getBoundingClientRect();
-    const dx = (spineRect.left + spineRect.width / 2) - (flipRect.left + flipRect.width / 2);
-    const dy = (spineRect.top + spineRect.height / 2) - (flipRect.top + flipRect.height / 2);
-    const sx = spineRect.width / flipRect.width;
-    const sy = spineRect.height / flipRect.height;
+    const dx = (target.left + target.width / 2) - (flipRect.left + flipRect.width / 2);
+    const dy = (target.top + target.height / 2) - (flipRect.top + flipRect.height / 2);
+    const sx = target.width / flipRect.width;
+    const sy = target.height / flipRect.height;
     return "translate(" + dx + "px, " + dy + "px) scale(" + sx + ", " + sy + ") rotateY(14deg)";
   }
 
-  let closing = false;
+  function clientRect(el) {
+    const rect = el.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
 
-  function openCase(movie, spineEl, onClosed) {
-    buildOverlayContent(movie);
+  function openCase(movie, opts) {
+    // opts: fromEl o fromRect (origen del vuelo), mode view o edit, onClosed, onConfirm
+    opts = opts || {};
+    const mode = opts.mode || "view";
+    buildOverlayContent(movie, mode);
     overlay.hidden = false;
-    closing = false;
+
+    let closing = false;
+    const fromRect = opts.fromRect || (opts.fromEl ? clientRect(opts.fromEl) : null);
 
     const flip = overlay.querySelector(".case-flip");
     const cover = overlay.querySelector(".case-cover");
     const backdrop = overlay.querySelector(".case-backdrop");
     const closeBtn = overlay.querySelector(".case-close");
 
-    spineEl.classList.add("is-open");
+    if (opts.fromEl) opts.fromEl.classList.add("is-open");
 
-    // primer frame en el lomo sin animar, segundo frame viaja al centro
+    // primer frame en el origen sin animar, segundo frame viaja al centro
     flip.style.transition = "none";
-    flip.style.transform = flipTransformFor(spineEl, flip);
+    flip.style.transform = fromRect ? rectCenterTransform(fromRect, flip) : "scale(0.6)";
     void flip.offsetWidth;
     flip.style.transition = "";
     flip.style.transform = "";
@@ -254,33 +291,102 @@ MV.shelf = (function () {
       if (event.target !== flip || closing) return;
       flip.removeEventListener("transitionend", onArrive);
       overlay.classList.add("arrived", "open");
+      if (mode === "edit") {
+        const dateInput = overlay.querySelector("#case-date");
+        if (dateInput) dateInput.focus({ preventScroll: true });
+      }
     });
 
-    function close() {
+    function teardown() {
+      overlay.hidden = true;
+      overlay.innerHTML = "";
+      if (opts.fromEl) opts.fromEl.classList.remove("is-open");
+    }
+
+    function travelTo(targetRect, done) {
+      // cierra la tapa, saca la caja del centro y la manda al rect destino
       if (closing) return;
       closing = true;
+      const wasOpen = overlay.classList.contains("open");
       overlay.classList.remove("open");
+
+      function fly() {
+        overlay.classList.remove("arrived");
+        flip.style.transform = targetRect ? rectCenterTransform(targetRect, flip) : "scale(0.6)";
+        flip.addEventListener("transitionend", function onBack(event2) {
+          if (event2.target !== flip) return;
+          flip.removeEventListener("transitionend", onBack);
+          teardown();
+          if (done) done();
+        });
+      }
+
+      // si la tapa nunca llego a abrirse no hay transicion que esperar, la caja vuela directo
+      if (!wasOpen) {
+        fly();
+        return;
+      }
 
       cover.addEventListener("transitionend", function onCoverClosed(event) {
         if (event.target !== cover) return;
         cover.removeEventListener("transitionend", onCoverClosed);
-        overlay.classList.remove("arrived");
-        flip.style.transform = flipTransformFor(spineEl, flip);
-        flip.addEventListener("transitionend", function onBack(event2) {
-          if (event2.target !== flip) return;
-          flip.removeEventListener("transitionend", onBack);
-          overlay.hidden = true;
-          overlay.innerHTML = "";
-          spineEl.classList.remove("is-open");
-          if (onClosed) onClosed();
-        });
+        fly();
+      });
+    }
+
+    function close() {
+      // vuelve al origen, el lomo si vino de un lomo o el rect inicial si vino de la computadora
+      const backRect = opts.fromEl ? clientRect(opts.fromEl) : fromRect;
+      travelTo(backRect, opts.onClosed);
+    }
+
+    if (mode === "edit") {
+      const ratingInput = overlay.querySelector("#case-rating");
+      const tape = overlay.querySelector(".booklet-tape");
+
+      // la cinta de papel refleja el puntaje en vivo, arranca en duda hasta que haya numero valido
+      ratingInput.addEventListener("input", function () {
+        const value = parseFloat(ratingInput.value);
+        const valid = !isNaN(value) && value >= 0 && value <= 10;
+        tape.textContent = valid ? (Math.round(value * 10) / 10).toFixed(1) : "?";
+        tape.classList.toggle("booklet-tape-pending", !valid);
+      });
+
+      overlay.querySelector(".case-cancel-btn").addEventListener("click", close);
+      overlay.querySelector(".case-save-btn").addEventListener("click", function () {
+        const dateValue = overlay.querySelector("#case-date").value.trim() || "-";
+        const ratingValue = parseFloat(ratingInput.value);
+        const reviewValue = overlay.querySelector("#case-review").value.trim() || "sin review todavia";
+
+        // el puntaje es lo unico obligatorio porque la cinta del lomo lo necesita
+        if (isNaN(ratingValue) || ratingValue < 0 || ratingValue > 10) {
+          ratingInput.classList.add("invalid");
+          ratingInput.focus({ preventScroll: true });
+          return;
+        }
+
+        const fullMovie = {
+          title: movie.title,
+          releaseDate: movie.releaseDate,
+          duration: movie.duration,
+          imdbRating: movie.imdbRating,
+          parental: movie.parental,
+          genres: movie.genres,
+          country: movie.country,
+          actors: movie.actors,
+          imdbLink: movie.imdbLink,
+          watchedDate: dateValue,
+          personalRating: Math.round(ratingValue * 10) / 10,
+          review: reviewValue
+        };
+        if (opts.onConfirm) opts.onConfirm(fullMovie);
       });
     }
 
     backdrop.addEventListener("click", close);
     closeBtn.addEventListener("click", close);
 
-    return { close: close };
+    return { close: close, travelTo: travelTo };
   }
 
   function setOnSpineClick(handler) {

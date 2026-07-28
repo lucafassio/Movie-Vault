@@ -70,35 +70,7 @@ button {
   cursor: pointer;
 }
 
-/* ---- chrome fijo de la app ---- */
-
-.app-chrome {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 70;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 22px;
-  pointer-events: none;
-  font-family: var(--font-pixel);
-}
-
-.app-logo {
-  font-size: 26px;
-  letter-spacing: 1px;
-  color: var(--ink);
-  text-shadow: 2px 2px 0 rgba(36, 26, 32, 0.8);
-}
-
-.app-icons {
-  display: flex;
-  gap: 14px;
-  font-size: 20px;
-  opacity: 0.75;
-}
+/* ---- chrome fijo de la app, el header vive pintado en la imagen de fondo ---- */
 
 .ui-btn {
   position: fixed;

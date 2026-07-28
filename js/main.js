@@ -1,18 +1,18 @@
-// orquestador: maquina de estados de la escena y la secuencia de alta con impresora, caja y vuelo al estante
+// orquestador: maquina de estados de camara y overlays sobre la imagen fija de la habitacion
 
 window.MV = window.MV || {};
 
 MV.main = (function () {
   const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const T = REDUCED ? 0.02 : 1;
   const CAMERA_MS = REDUCED ? 60 : 1300;
 
   const stage = document.getElementById("stage");
   const deskZone = document.getElementById("desk-zone");
   const shelfZone = document.getElementById("shelf-zone");
+  const monitorScreen = document.getElementById("monitor-screen");
   const backBtn = document.getElementById("back-btn");
 
-  // estados: room, desk, shelf, case, placing
+  // estados: room, desk, shelf, case, form, placing
   let state = "room";
   let busy = false;
   let activeCase = null;
@@ -20,7 +20,7 @@ MV.main = (function () {
   function setState(next) {
     state = next;
     document.body.dataset.state = next;
-    backBtn.hidden = next === "room" || next === "case" || next === "placing";
+    backBtn.hidden = next !== "desk" && next !== "shelf";
   }
 
   function lock(ms) {
@@ -42,6 +42,36 @@ MV.main = (function () {
     return { x: x, y: y, w: el.offsetWidth, h: el.offsetHeight };
   }
 
+  // columna de mundo que ocupa la estanteria, el scroll de la vista shelf se mueve entre top y bottom
+  const SHELF_COL = { x: 1620, w: 1000, top: 120, bottom: 1400 };
+
+  let shelfScroll = SHELF_COL.top;
+
+  function shelfViewHeight() {
+    // el alto del encuadre sale del aspecto del viewport para que la camara siempre calce el ancho de la estanteria y lo que sobra se recorra con scroll
+    return SHELF_COL.w * window.innerHeight / window.innerWidth;
+  }
+
+  function shelfViewRect(scrollY) {
+    const h = shelfViewHeight();
+    const maxTop = Math.max(SHELF_COL.top, SHELF_COL.bottom - h);
+    const y = Math.min(Math.max(scrollY, SHELF_COL.top), maxTop);
+    return { x: SHELF_COL.x, y: y, w: SHELF_COL.w, h: h };
+  }
+
+  function applyShelfScroll(mode) {
+    const rect = shelfViewRect(shelfScroll);
+    // el rect ya viene clampeado, lo guardamos asi el scroll no acumula fuera de rango y responde apenas cambia de sentido
+    shelfScroll = rect.y;
+    MV.camera.goTo("shelf", rect, mode);
+  }
+
+  function scrollShelfBy(worldDelta) {
+    if (state !== "shelf") return;
+    shelfScroll += worldDelta;
+    applyShelfScroll("pan");
+  }
+
   // ---- flujos de camara ----
 
   function goDesk() {
@@ -57,147 +87,78 @@ MV.main = (function () {
     if (state !== "room" || busy) return;
     setState("shelf");
     lock(CAMERA_MS);
-    MV.camera.goTo("shelf");
+    // siempre entramos por arriba, que es donde arranca la coleccion
+    shelfScroll = SHELF_COL.top;
+    applyShelfScroll("travel");
   }
 
   function goRoom() {
     if (busy) return;
-    if (state === "desk") MV.computer.turnOff();
     if (state !== "desk" && state !== "shelf") return;
+    if (state === "desk") MV.computer.turnOff();
     setState("room");
     lock(CAMERA_MS);
     MV.camera.goTo("room");
   }
 
-  // ---- caja abierta ----
+  // ---- caja en modo lectura desde la estanteria ----
 
   function handleSpineClick(movie, spineEl) {
     if (state !== "shelf" || busy) return;
     setState("case");
-    activeCase = MV.shelf.openCase(movie, spineEl, function () {
-      activeCase = null;
-      setState("shelf");
+    activeCase = MV.shelf.openCase(movie, {
+      fromEl: spineEl,
+      mode: "view",
+      onClosed: function () {
+        activeCase = null;
+        setState("shelf");
+      }
     });
   }
 
-  // ---- secuencia de alta: imprimir, guardar el papel en la caja, cerrarla y volarla al estante ----
+  // ---- alta: la caja sale de la pantalla, se completa la ficha y la caja viaja al estante ----
 
-  function buildMiniCase(color) {
-    const mini = document.createElement("div");
-    mini.className = "mini-case";
-    mini.style.setProperty("--spine-color", color);
-    mini.innerHTML =
-      '<div class="mc-half mc-right"><div class="mc-disc"></div></div>' +
-      '<div class="mc-half mc-left">' +
-        '<div class="mc-face mc-face-inside"><div class="mc-paper"><div class="pp-lines"></div></div></div>' +
-        '<div class="mc-face mc-face-cover"></div>' +
-      "</div>";
-    return mini;
+  function handleSelect(movie) {
+    if (state !== "desk" || busy) return;
+    setState("form");
+    activeCase = MV.shelf.openCase(movie, {
+      fromRect: monitorScreen.getBoundingClientRect(),
+      mode: "edit",
+      onClosed: function () {
+        activeCase = null;
+        setState("desk");
+      },
+      onConfirm: placeMovie
+    });
   }
 
   function placeMovie(movie) {
     setState("placing");
     busy = true;
 
-    const color = MV.shelf.spineColor(movie);
+    MV.data.addMovie(movie);
+    MV.shelf.render(MV.data.getCollection());
 
-    // 1. el papel con la ficha sale de la impresora
-    const paper = document.createElement("div");
-    paper.className = "print-paper";
-    paper.innerHTML = '<div class="pp-lines"></div>';
-    paper.style.left = "898px";
-    paper.style.top = "546px";
-    paper.style.height = "100px";
-    paper.style.transformOrigin = "bottom";
-    paper.style.transform = "scaleY(0.06)";
-    stage.appendChild(paper);
-    paper.animate(
-      [{ transform: "scaleY(0.06)" }, { transform: "scaleY(1)" }],
-      { duration: 950 * T, delay: 300 * T, easing: "cubic-bezier(0.3, 1, 0.5, 1)", fill: "forwards" }
-    );
+    // el lomo nuevo ya existe pero viaja escondido dentro de la caja, aparece cuando la caja aterriza
+    const spine = MV.shelf.lastSpine();
+    spine.style.visibility = "hidden";
 
-    // 2. aparece la caja abierta sobre el escritorio
-    const mini = buildMiniCase(color);
-    stage.appendChild(mini);
-    setTimeout(function () { mini.classList.add("visible"); }, 1150 * T);
+    // la camara arranca hacia la estanteria dejando el lomo nuevo centrado y la caja vuela al lugar exacto donde va a quedar cuando la camara llegue
+    const spineWorld = worldRect(spine);
+    shelfScroll = spineWorld.y + spineWorld.h / 2 - shelfViewHeight() / 2;
+    const view = shelfViewRect(shelfScroll);
+    shelfScroll = view.y;
+    MV.camera.goTo("shelf", view);
+    const target = MV.camera.worldToClient(spineWorld, view);
 
-    // 3. el papel viaja y se engancha en la mitad izquierda de la caja
-    setTimeout(function () {
-      paper.remove();
-      const flyPaper = document.createElement("div");
-      flyPaper.className = "fly-paper";
-      flyPaper.style.left = "898px";
-      flyPaper.style.top = "546px";
-      stage.appendChild(flyPaper);
-      flyPaper.innerHTML = '<div class="pp-lines"></div>';
-
-      // destino: el hueco interior de la mitad izquierda de la mini caja
-      const targetX = 710;
-      const targetY = 537;
-      const dx = targetX + 46 - (898 + 60);
-      const dy = targetY + 67 - (546 + 50);
-      const anim = flyPaper.animate(
-        [
-          { transform: "translate(0px, 0px) rotate(0deg) scale(1)" },
-          { transform: "translate(" + dx * 0.5 + "px, " + (dy * 0.5 - 46) + "px) rotate(-7deg) scale(0.92)", offset: 0.5 },
-          { transform: "translate(" + dx + "px, " + dy + "px) rotate(-2deg) scale(0.78, 1.32)" }
-        ],
-        { duration: 680 * T, easing: "cubic-bezier(0.35, 0.9, 0.4, 1)", fill: "forwards" }
-      );
-      anim.onfinish = function () {
-        flyPaper.remove();
-        mini.classList.add("paper-in");
-      };
-    }, 1550 * T);
-
-    // 4. la caja se cierra sobre el papel
-    setTimeout(function () { mini.classList.add("closing"); }, 2550 * T);
-
-    // 5. la caja cerrada vuela al estante mientras la camara la sigue
-    setTimeout(function () {
-      MV.camera.goTo("shelf");
-
-      // el lomo nuevo ya existe pero viaja escondido dentro de la caja voladora, el que estaba inclinado se endereza fuera de camara
-      MV.shelf.render(MV.data.getCollection());
-      const spine = MV.shelf.lastSpine();
-      spine.style.visibility = "hidden";
-      const target = worldRect(spine);
-
-      const startCx = 880;
-      const startCy = 604;
-      const flyer = document.createElement("div");
-      flyer.className = "flyer";
-      flyer.style.setProperty("--spine-color", color);
-      flyer.style.width = target.w + "px";
-      flyer.style.height = target.h + "px";
-      flyer.style.left = (startCx - target.w / 2) + "px";
-      flyer.style.top = (startCy - target.h / 2) + "px";
-      stage.appendChild(flyer);
-      mini.remove();
-
-      const dx = target.x + target.w / 2 - startCx;
-      const dy = target.y + target.h / 2 - startCy;
-      const sx = 112 / target.w;
-      const sy = 164 / target.h;
-
-      const anim = flyer.animate(
-        [
-          { transform: "translate(0px, 0px) rotate(0deg) scale(" + sx + ", " + sy + ")" },
-          { transform: "translate(" + dx * 0.45 + "px, " + (dy * 0.45 - 190) + "px) rotate(8deg) scale(" + (0.4 + sx * 0.6) + ", " + (0.4 + sy * 0.6) + ")", offset: 0.42 },
-          { transform: "translate(" + dx + "px, " + dy + "px) rotate(-7deg) scale(1)" }
-        ],
-        { duration: 1250 * T, delay: 120 * T, easing: "cubic-bezier(0.35, 0.75, 0.3, 1)", fill: "forwards" }
-      );
-
-      anim.onfinish = function () {
-        flyer.remove();
-        spine.style.visibility = "";
-        spine.classList.add("just-added");
-        MV.computer.turnOff();
-        busy = false;
-        setState("shelf");
-      };
-    }, 3350 * T);
+    activeCase.travelTo(target, function () {
+      activeCase = null;
+      spine.style.visibility = "";
+      spine.classList.add("just-added");
+      MV.computer.turnOff();
+      busy = false;
+      setState("shelf");
+    });
   }
 
   // ---- wiring ----
@@ -206,24 +167,44 @@ MV.main = (function () {
   shelfZone.addEventListener("click", goShelf);
   backBtn.addEventListener("click", goRoom);
 
-  [deskZone, shelfZone].forEach(function (zone) {
-    zone.addEventListener("keydown", function (event) {
-      // solo si el foco esta en la zona misma, si no la barra espaciadora del input de busqueda se pierde
-      if (event.target !== zone) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        zone.click();
-      }
-    });
-  });
+  // la rueda recorre la estanteria a lo alto, convertimos el delta de pantalla a px de mundo para que el movimiento acompañe al gesto sin importar el zoom
+  window.addEventListener("wheel", function (event) {
+    if (state !== "shelf") return;
+    event.preventDefault();
+    const scale = window.innerWidth / SHELF_COL.w;
+    scrollShelfBy(event.deltaY / scale);
+  }, { passive: false });
 
   document.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape") return;
-    if (state === "case" && activeCase) {
-      activeCase.close();
-    } else {
-      goRoom();
+    if (event.key === "Escape") {
+      if ((state === "case" || state === "form") && activeCase) {
+        activeCase.close();
+      } else {
+        goRoom();
+      }
+      return;
     }
+
+    if (state !== "shelf") return;
+
+    const step = shelfViewHeight();
+    const keySteps = {
+      ArrowDown: step * 0.3,
+      ArrowUp: -step * 0.3,
+      PageDown: step * 0.85,
+      PageUp: -step * 0.85,
+      Home: -(SHELF_COL.bottom - SHELF_COL.top),
+      End: SHELF_COL.bottom - SHELF_COL.top
+    };
+    if (keySteps[event.key] === undefined) return;
+    event.preventDefault();
+    scrollShelfBy(keySteps[event.key]);
+  });
+
+  // el reencuadre por resize necesita el rect de shelf recalculado con el aspecto nuevo, si no el alto queda del viewport viejo
+  window.addEventListener("resize", function () {
+    if (state !== "shelf" && state !== "case") return;
+    applyShelfScroll("instant");
   });
 
   // ---- init ----
@@ -236,8 +217,7 @@ MV.main = (function () {
 
   MV.shelf.render(MV.data.getCollection());
   MV.shelf.setOnSpineClick(handleSpineClick);
-  MV.computer.setOnPurchase(placeMovie);
-  MV.rain.start();
+  MV.computer.setOnSelect(handleSelect);
   setState("room");
 
   return {};
