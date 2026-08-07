@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>movievault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&family=VT323&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+  <script>
+    // misma firma que los scripts, las hojas de estilo locales tambien se quedan cacheadas entre ediciones
+    window.MV_BUST = Date.now();
+    ["css/base.css", "css/scene.css", "css/computer.css", "css/case.css"].forEach(function (href) {
+      document.write('<link rel="stylesheet" href="' + href + "?v=" + window.MV_BUST + '">');
+    });
+  </script>
+</head>
+<body>
+  <div id="viewport">
+    <div id="camera">
+      <!-- el stage es la imagen fija de la habitacion, todo lo interactivo son overlays posicionados en coordenadas de imagen -->
+      <div id="stage">
+
+        <!-- paneles que tapan los lomos pintados en la imagen, los lomos reales se renderizan encima -->
+        <div class="shelf-panel" data-row="0"></div>
+        <div class="shelf-panel" data-row="1"></div>
+        <div class="shelf-panel shelf-panel-optional" data-row="2"></div>
+
+        <!-- estantes donde viven los lomos dinamicos -->
+        <div class="spine-strip" data-row="0"></div>
+        <div class="spine-strip" data-row="1"></div>
+        <div class="spine-strip" data-row="2"></div>
+
+        <!-- pantalla del crt, se prende cuando la camara llega al escritorio -->
+        <div id="monitor-screen"></div>
+
+        <!-- zonas clickeables, solo activas en la vista general -->
+        <button id="desk-zone" class="hotspot" aria-label="usar la computadora" data-label="computadora"></button>
+        <button id="shelf-zone" class="hotspot" aria-label="ver la coleccion" data-label="coleccion"></button>
+      </div>
+    </div>
+
+    <button id="back-btn" class="ui-btn" hidden>&larr; volver</button>
+    <div id="case-overlay" hidden></div>
+  </div>
+
+  <script>
+    // el server estatico local no manda cabeceras de no-cache, sin esta firma el browser se queda con la version vieja de los scripts y hay que recargar a mano despues de cada edicion
+    ["js/data.js", "js/camera.js", "js/shelf.js", "js/computer.js", "js/main.js"].forEach(function (src) {
+      const script = document.createElement("script");
+      script.src = src + "?v=" + window.MV_BUST;
+      // async false mantiene el orden de ejecucion, que importa porque los modulos se registran en el namespace MV
+      script.async = false;
+      document.body.appendChild(script);
+    });
+  </script>
+</body>
+</html>

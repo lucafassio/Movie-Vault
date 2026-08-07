@@ -1,58 +1,481 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>movievault</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&family=VT323&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-  <script>
-    // misma firma que los scripts, las hojas de estilo locales tambien se quedan cacheadas entre ediciones
-    window.MV_BUST = Date.now();
-    ["css/base.css", "css/scene.css", "css/computer.css", "css/case.css"].forEach(function (href) {
-      document.write('<link rel="stylesheet" href="' + href + "?v=" + window.MV_BUST + '">');
-    });
-  </script>
+<meta charset="utf-8">
+<title>movievault</title>
+<style>
+  :root {
+    --bg: #0d0b13;
+    --panel: rgba(20, 18, 28, 0.88);
+    --line: #3a3550;
+    --ink: #cfcadd;
+    --accent: #d2783c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font: 12px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  img { user-select: none; }
+
+  /* un solo stage de 2816x1536: el campo de vision no cambia nunca */
+  #fit { position: absolute; transform-origin: 0 0; }
+  #stage { position: relative; width: 2816px; height: 1536px; overflow: hidden; }
+  .etapa[hidden] { display: none; }
+  .layer { position: absolute; top: 0; left: 0; width: 2816px; height: 1536px; }
+
+  #hotspot {
+    position: absolute; left: 1697px; top: 177px; width: 830px; height: 1252px;
+    border: 6px solid transparent; border-radius: 10px;
+    background: transparent; cursor: pointer; padding: 0; z-index: 9;
+  }
+  #hotspot:hover, #hotspot:focus-visible {
+    border-color: rgba(210, 120, 60, .85);
+    background: rgba(210, 120, 60, .10);
+    outline: none;
+  }
+
+  /* --- etapa frontal ---
+     las capas se hornean en un canvas alto (2816x2648) que cubre todo el recorrido
+     vertical de camara. como la camara es ortografica, moverla en Z es una
+     traslacion pura de pixeles: el paneo es un translateY, no un re-render. */
+  #pan { position: absolute; top: 0; left: 0; width: 2816px; height: 2648px;
+         will-change: transform; }
+  .capa-alta { position: absolute; top: 0; left: 0; width: 2816px; height: 2648px; }
+  #f-scene { z-index: 1; }
+  #f-back  { z-index: 2; }
+  #plates {
+    position: absolute; overflow: hidden; z-index: 3;
+    left: 798.04px; top: 459.69px; width: 1219.93px; height: 1626.57px;
+  }
+  #f-frame { z-index: 4; }
+  /* sonda de geometria: define que cuenta como "encima del armario" */
+  #zona-armario {
+    position: absolute; z-index: 5; pointer-events: none;
+    left: 747.21px; top: 307.20px; width: 1321.59px; height: 2033.21px;
+  }
+  /* --- estante ---
+     caja de 3 caras (frente / arriba / abajo) en vez de una placa plana: al girar,
+     una placa plana se achica a nada y no se lee de que lado va. sin `perspective`
+     en ningun ancestro la proyeccion es ortografica, igual que cam-travel, asi que
+     el frente escorza por cos(t) y la tapa crece por sin(t) sin deformarse.
+     cada .cara lleva su propio render ortografico dead-on de esa cara de la bandeja,
+     asi que la textura y la geometria son la misma cosa.
+     bandeja 1.10 x 0.17 x 0.22 m -> 1118 x 173 x 224 px a 1016.6065 px/m. la
+     profundidad entra en los 0.27 m que separan el tramo frontal del trasero
+     (2 * R_POLEA) y le sobra para una caja de DVD parada (0.135).
+     left: la bandeja arranca en x=0.594 de mundo -> (0.594-1.144)*PPM + 1408 = 848.87
+     en la imagen alta, menos los 798.04 donde empieza la abertura. */
+  .plate {
+    position: absolute; top: 0; left: 50.83px;
+    width: 1118px; height: 224px;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  .cara {
+    position: absolute; left: 50%; top: 50%;
+    backface-visibility: hidden;   /* la cara de abajo no se cuela cuando se ve la de arriba */
+  }
+  /* con giro 0 la tapa y el fondo quedan de canto: area proyectada cero, pero el
+     browser igual las pinta como una linea de 1 px con su borde. se apagan y se
+     encienden solo mientras el estante gira. */
+  .cara-arriba, .cara-abajo { display: none; }
+  .plate.girando .cara-arriba, .plate.girando .cara-abajo { display: block; }
+  .cara { background-size: 100% 100%; }
+  .cara-frente {
+    width: 1118px; height: 224px;
+    transform: translate(-50%, -50%) translateZ(86.41px);
+    background-image: url("renders/layers/front/tray--front.png");
+  }
+  /* mientras el estante gira, uno de sus dos cantos se esta metiendo en la madera:
+     el de arriba en el arco de arriba, el de abajo en el de abajo. la sombra se
+     apoya en ese canto y se va con el giro, asi que de frente (giro 0) queda en
+     cero y la cara sale tal cual la horneo blender.
+     el degradado ocupa la cara ENTERA y lo que crece con el giro es la opacidad,
+     no el tamaño: girando, el estante ademas baja y sale por debajo de la
+     abertura, asi que a -40 grados solo queda a la vista el 12% de arriba de la
+     cara. una mancha escalada desde el canto de abajo cae entera en la parte
+     recortada y no se ve un pixel — medido con diff A/B. */
+  .sombra {
+    display: block; position: absolute; inset: 0;
+    pointer-events: none;
+  }
+  .sombra-sup {
+    opacity: var(--som-sup, 0);
+    background: linear-gradient(to bottom, rgba(0,0,0,.95), rgba(0,0,0,.72) 40%, rgba(0,0,0,.48));
+  }
+  .sombra-inf {
+    opacity: var(--som-inf, 0);
+    background: linear-gradient(to top, rgba(0,0,0,.95), rgba(0,0,0,.72) 40%, rgba(0,0,0,.48));
+  }
+  /* tapa: el borde de adelante es el borde INFERIOR de la cara (rotateX(90deg)
+     manda el +y local hacia el observador), y el render de arriba sale con el
+     frente de la bandeja abajo. calzan sin espejar */
+  .cara-arriba {
+    width: 1118px; height: 173px;
+    transform: translate(-50%, -50%) translateY(-112px) rotateX(90deg);
+    background-image: url("renders/layers/front/tray--top.png");
+  }
+  /* fondo del estante: aca el borde de adelante es el SUPERIOR (rotateX(-90deg)),
+     y el render de abajo sale con el frente arriba. tambien calza derecho */
+  .cara-abajo {
+    width: 1118px; height: 173px;
+    transform: translate(-50%, -50%) translateY(112px) rotateX(-90deg);
+    background-image: url("renders/layers/front/tray--bottom.png");
+  }
+
+  #dbg {
+    position: fixed; bottom: 10px; left: 10px; z-index: 20;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 5px;
+    padding: 5px 9px; color: #8b85a3; font-variant-numeric: tabular-nums;
+  }
+  #dbg b { color: var(--ink); font-weight: 600; }
+  #dbg .modo { color: var(--accent); }
+  #volver {
+    position: fixed; top: 12px; right: 12px; z-index: 20;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 5px;
+    padding: 8px 13px; cursor: pointer; font: inherit;
+  }
+  #volver:hover { border-color: var(--accent); }
+  #volver[hidden] { display: none; }
+</style>
 </head>
 <body>
-  <div id="viewport">
-    <div id="camera">
-      <!-- el stage es la imagen fija de la habitacion, todo lo interactivo son overlays posicionados en coordenadas de imagen -->
-      <div id="stage">
 
-        <!-- paneles que tapan los lomos pintados en la imagen, los lomos reales se renderizan encima -->
-        <div class="shelf-panel" data-row="0"></div>
-        <div class="shelf-panel" data-row="1"></div>
-        <div class="shelf-panel shelf-panel-optional" data-row="2"></div>
+<div id="fit">
+  <div id="stage">
 
-        <!-- estantes donde viven los lomos dinamicos -->
-        <div class="spine-strip" data-row="0"></div>
-        <div class="spine-strip" data-row="1"></div>
-        <div class="spine-strip" data-row="2"></div>
+    <div class="etapa" id="etapa-room">
+      <img class="layer" src="renders/layers/room/room.png" alt="" draggable="false">
+      <button id="hotspot" title="ir a la estanteria"></button>
+    </div>
 
-        <!-- pantalla del crt, se prende cuando la camara llega al escritorio -->
-        <div id="monitor-screen"></div>
+    <div class="etapa" id="etapa-viaje" hidden>
+      <img class="layer" id="cuadro" alt="" draggable="false">
+    </div>
 
-        <!-- zonas clickeables, solo activas en la vista general -->
-        <button id="desk-zone" class="hotspot" aria-label="usar la computadora" data-label="computadora"></button>
-        <button id="shelf-zone" class="hotspot" aria-label="ver la coleccion" data-label="coleccion"></button>
+    <div class="etapa" id="etapa-front" hidden>
+      <div id="pan">
+        <img class="capa-alta" id="f-scene" src="renders/layers/front/front-scene.png" alt="" draggable="false">
+        <img class="capa-alta" id="f-back"  src="renders/layers/front/front-back.png"  alt="" draggable="false">
+        <div id="plates"></div>
+        <img class="capa-alta" id="f-frame" src="renders/layers/front/front-frame.png" alt="" draggable="false">
+        <div id="zona-armario"></div>
       </div>
     </div>
 
-    <button id="back-btn" class="ui-btn" hidden>&larr; volver</button>
-    <div id="case-overlay" hidden></div>
   </div>
+</div>
 
-  <script>
-    // el server estatico local no manda cabeceras de no-cache, sin esta firma el browser se queda con la version vieja de los scripts y hay que recargar a mano despues de cada edicion
-    ["js/data.js", "js/camera.js", "js/shelf.js", "js/computer.js", "js/main.js"].forEach(function (src) {
-      const script = document.createElement("script");
-      script.src = src + "?v=" + window.MV_BUST;
-      // async false mantiene el orden de ejecucion, que importa porque los modulos se registran en el namespace MV
-      script.async = false;
-      document.body.appendChild(script);
+<button id="volver" hidden>&larr; volver (Esc)</button>
+<div id="dbg">etapa <b id="d-etapa">room</b> &nbsp; modo <b class="modo" id="d-modo">--</b>
+  &nbsp; fila <b id="d-fila">0.00</b> &nbsp; camara <b id="d-pan">0</b> &nbsp; fps <b id="d-fps">--</b></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- mapeo, medido sobre la imagen alta horneada desde cam-travel ----
+  var PPM = 1016.6065;          // px por metro
+  var PX_Z0 = 2340.4130;        // fila donde cae world z = 0, en la imagen alta
+  var PLACA_H = 224;            // alto del estante: 0.22 m (PH_Z) a 1016.6065 px/m
+  var ABERT_TOP = 459.69;       // borde superior de la abertura, origen del recorte
+  var ALTO_IMG = 2648;          // alto de la imagen horneada
+  var STAGE_W = 2816, STAGE_H = 1536;
+
+  // recorrido de camara: 0 = posicion inicial (limite superior).
+  // el maximo pone la linea del piso (z=0, fila PX_Z0) en el borde inferior del
+  // cuadro, asi la vista nunca se sale de la habitacion.
+  var PAN_MAX = PX_Z0 - STAGE_H;      // 804.413
+
+  // ---- parametros del loop, mismos que el .blend ----
+  // arriba el estante va pegado al dintel; abajo queda junta negra a la vista.
+  // eso son 6 estantes + 6 juntas (5 internas + 1 abajo) -> 6*PASO = 1.60
+  var L_RECTA = 1.309218, L_TOTAL = 3.466667, N = 13;
+  var PASO = 1.60 / 6;          // 0.2666667, junta de 0.0466667
+  var Z_TOP = 1.740;            // 1.85 - alto/2: el primero pegado al dintel
+  var MARGEN = 0.38;            // tiene que superar al paso
+
+  // ---- giro al entrar en la madera ----
+  // sin perspectiva, rotateX proyecta como cos(t): +t y -t son indistinguibles.
+  // la direccion se lee por el pivote, no por el signo. anclo el giro en la cara
+  // que entra primero en la madera y el resto se pliega hacia ella.
+  var PH_Z = 0.220;             // alto del estante
+  var Z_AB0 = 0.250;            // base de la abertura
+  var R_POLEA = 0.135;
+  var ARCO = Math.PI * R_POLEA / 2;         // 0.212058: cuarto de vuelta de la polea
+  var S_LIM_SUP = 0;                        // el tope del estante toca el dintel
+  var S_LIM_INF = Z_TOP - (Z_AB0 + PH_Z / 2);   // 1.38: su base toca la base
+  // la sombra del frente arranca ANTES del arco, sobre el tramo recto. si arrancara
+  // recien con el giro no se veria nunca: girando el estante ademas baja y sale por
+  // debajo de la abertura, y a -40 grados su cara frontal cae en y 774-855 con el
+  // recorte de #plates terminando en 784 — los 10 px que sobran los tapa #f-frame,
+  // que va en z-index 4 sobre el 3 de #plates. medido con elementFromPoint.
+  var S_PRE = 0.12;
+
+  var K_VIAJE = 24, MS_VIAJE = 820;
+
+  // avanzar = rueda hacia abajo = las placas suben = fase negativa.
+  // el arranque es fase 0 y es tope duro.
+  var FASE_INICIO = 0;
+  var CLAVE = "movievault.lab.paternoster";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var etapa = "room";           // room | viaje | front
+  var fase = 0, pan = 0;
+  var sucio = true, modo = "--";
+
+  function moverFase(delta) {
+    var v = fase + delta;
+    if (v > FASE_INICIO) v = FASE_INICIO;
+    if (v !== fase) { fase = v; sucio = true; }
+  }
+  function moverPan(delta) {
+    var v = pan + delta;
+    if (v < 0) v = 0;
+    if (v > PAN_MAX) v = PAN_MAX;
+    if (v !== pan) { pan = v; sucio = true; }
+  }
+  function guardarPos() {
+    try { localStorage.setItem(CLAVE, String(fase)); } catch (err) {}
+  }
+  function recuperarPos() {
+    try {
+      var v = parseFloat(localStorage.getItem(CLAVE));
+      if (isFinite(v) && v <= FASE_INICIO) fase = v;
+    } catch (err) {}
+  }
+
+  // ---- placas ----
+  var placas = [];
+  (function () {
+    var cont = $("plates");
+    for (var i = 0; i < N; i++) {
+      var caja = document.createElement("div");
+      caja.className = "plate";
+      caja.innerHTML = '<div class="cara cara-frente">'
+                     +   '<i class="sombra sombra-sup"></i>'
+                     +   '<i class="sombra sombra-inf"></i>'
+                     + '</div>'
+                     + '<div class="cara cara-arriba"></div>'
+                     + '<div class="cara cara-abajo"></div>';
+      cont.appendChild(caja);
+      placas.push({ el: caja, s: 0, visible: null, origen: null, giro: 0, girando: false,
+                    som: 0, somAbajo: false });
+    }
+  })();
+
+  function pintar() {
+    $("pan").style.transform = "translate3d(0," + (-pan).toFixed(2) + "px,0)";
+    var visibles = 0;
+    for (var i = 0; i < N; i++) {
+      var p = placas[i];
+      var s = (i * PASO + fase) % L_TOTAL;
+      if (s < 0) s += L_TOTAL;
+      if (s > L_TOTAL - MARGEN) s -= L_TOTAL;
+      p.s = s;
+      var dentro = s >= -MARGEN && s <= L_RECTA + MARGEN;
+      if (dentro !== p.visible) {
+        p.el.style.display = dentro ? "block" : "none";
+        p.visible = dentro;
+      }
+      if (dentro) {
+        var top = PX_Z0 - (Z_TOP - s) * PPM - PLACA_H / 2 - ABERT_TOP;
+        var giro = 0, origen = "50% 50%", som = 0, somAbajo = false;
+        if (s < S_LIM_SUP + S_PRE) {
+          som = (S_LIM_SUP + S_PRE - s) / (S_PRE + ARCO);
+          if (s < S_LIM_SUP) {
+            // sale por arriba: pivota en su cara de arriba, la que ya entro en la madera
+            giro = 90 * Math.min(1, (S_LIM_SUP - s) / ARCO);
+            origen = "50% 0%";
+          }
+        } else if (s > S_LIM_INF - S_PRE) {
+          som = (s - (S_LIM_INF - S_PRE)) / (S_PRE + ARCO);
+          somAbajo = true;
+          if (s > S_LIM_INF) {
+            // sale por abajo: pivota en su cara de abajo
+            giro = -90 * Math.min(1, (s - S_LIM_INF) / ARCO);
+            origen = "50% 100%";
+          }
+        }
+        if (origen !== p.origen) { p.el.style.transformOrigin = origen; p.origen = origen; }
+        var girando = giro !== 0;
+        if (girando !== p.girando) { p.el.classList.toggle("girando", girando); p.girando = girando; }
+        som = som <= 0 ? 0 : Math.sqrt(Math.min(1, som));
+        if (som !== p.som || somAbajo !== p.somAbajo) {
+          var txt = som.toFixed(3);
+          p.el.style.setProperty("--som-sup", somAbajo ? "0" : txt);
+          p.el.style.setProperty("--som-inf", somAbajo ? txt : "0");
+          p.som = som; p.somAbajo = somAbajo;
+        }
+        p.giro = giro;
+        p.el.style.transform = "translate3d(0," + top.toFixed(2) + "px,0)"
+          + (giro ? " rotateX(" + giro.toFixed(2) + "deg)" : "");
+        if (s >= 0 && s <= L_RECTA) visibles++;
+      }
+    }
+    return visibles;
+  }
+
+  // ---- encuadre ----
+  var escala = 1;
+  function encuadrar() {
+    escala = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H) * 0.96;
+    $("fit").style.transform = "translate(" +
+      ((window.innerWidth - STAGE_W * escala) / 2).toFixed(1) + "px," +
+      ((window.innerHeight - STAGE_H * escala) / 2).toFixed(1) + "px) scale(" + escala + ")";
+  }
+  encuadrar();
+  window.addEventListener("resize", encuadrar);
+
+  // ---- el cursor decide que se mueve ----
+  function sobreArmario(cx, cy) {
+    var b = $("zona-armario").getBoundingClientRect();
+    return cx >= b.left && cx <= b.right && cy >= b.top && cy <= b.bottom;
+  }
+
+  // ---- viaje ----
+  var cuadros = [];
+  for (var f = 0; f < K_VIAJE; f++) {
+    var im = new Image();
+    im.src = "renders/layers/travel/travel-" + (f < 10 ? "0" + f : f) + ".png";
+    cuadros.push(im);
+  }
+  function viajar(haciaFront, alTerminar) {
+    etapa = "viaje"; modo = "--";
+    $("d-etapa").textContent = "viaje";
+    $("volver").hidden = true;
+    $("etapa-room").hidden = true;
+    $("etapa-front").hidden = true;
+    $("etapa-viaje").hidden = false;
+    var visor = $("cuadro"), ultimo = -1, t0 = performance.now();
+    (function paso(t) {
+      var u = Math.min((t - t0) / MS_VIAJE, 1);
+      var i = Math.round(haciaFront ? u * (K_VIAJE - 1) : (1 - u) * (K_VIAJE - 1));
+      if (i !== ultimo) { visor.src = cuadros[i].src; ultimo = i; }
+      if (u < 1) { requestAnimationFrame(paso); return; }
+      $("etapa-viaje").hidden = true;
+      alTerminar();
+    })(t0);
+  }
+  function irAFront() {
+    if (etapa !== "room") return;
+    viajar(true, function () {
+      etapa = "front";
+      pan = 0;                  // el viaje termina en la posicion inicial de camara
+      $("etapa-front").hidden = false;
+      $("volver").hidden = false;
+      $("d-etapa").textContent = "front";
+      sucio = true;
     });
-  </script>
+  }
+  function irARoom() {
+    if (etapa !== "front") return;
+    guardarPos();               // la posicion de la cadena sobrevive a la salida
+    viajar(false, function () {
+      etapa = "room";
+      $("etapa-room").hidden = false;
+      $("d-etapa").textContent = "room";
+    });
+  }
+  $("hotspot").addEventListener("click", irAFront);
+  $("volver").addEventListener("click", irARoom);
+
+  // ---- entrada ----
+  window.addEventListener("wheel", function (e) {
+    if (etapa !== "front") return;
+    e.preventDefault();
+    if (sobreArmario(e.clientX, e.clientY)) {
+      modo = "cadena";
+      moverFase(-e.deltaY / (PPM * escala));   // invertido y 1 a 1 con el gesto
+    } else {
+      modo = "camara";
+      moverPan(e.deltaY / escala);             // el paneo sigue al gesto sin invertir
+    }
+  }, { passive: false });
+
+  var arrastrando = false, ultimoY = 0, arrastreEnArmario = false;
+  window.addEventListener("pointerdown", function (e) {
+    if (etapa !== "front") return;
+    if (e.target.closest("#volver, #dbg")) return;
+    arrastrando = true; ultimoY = e.clientY;
+    arrastreEnArmario = sobreArmario(e.clientX, e.clientY);
+    document.body.style.cursor = "grabbing";
+  });
+  window.addEventListener("pointermove", function (e) {
+    if (!arrastrando) {
+      if (etapa === "front") {
+        var m = sobreArmario(e.clientX, e.clientY) ? "cadena" : "camara";
+        if (m !== modo) { modo = m; sucio = true; }
+      }
+      return;
+    }
+    var dy = e.clientY - ultimoY;
+    ultimoY = e.clientY;
+    if (arrastreEnArmario) moverFase(-dy / (PPM * escala));
+    else moverPan(-dy / escala);
+  });
+  window.addEventListener("pointerup", function () {
+    arrastrando = false; document.body.style.cursor = "";
+  });
+
+  // unica tecla: Esc sale de la escena de la estanteria
+  window.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" || etapa !== "front") return;
+    e.preventDefault();
+    irARoom();
+  });
+
+  // ---- loop ----
+  var t0 = performance.now(), acum = 0, marcos = 0;
+  (function tick(t) {
+    var dt = (t - t0) / 1000; t0 = t;
+    if (sucio) {
+      pintar();
+      $("d-fila").textContent = (-fase / PASO).toFixed(2)
+        + (fase >= FASE_INICIO ? " INICIO" : "");
+      $("d-pan").textContent = pan.toFixed(0) + "/" + PAN_MAX.toFixed(0)
+        + (pan <= 0 ? " TOPE" : pan >= PAN_MAX ? " FONDO" : "");
+      $("d-modo").textContent = etapa === "front" ? modo : "--";
+      sucio = false;
+    }
+    acum += dt; marcos++;
+    if (acum >= 0.4) { $("d-fps").textContent = Math.round(marcos / acum); acum = 0; marcos = 0; }
+    requestAnimationFrame(tick);
+  })(t0);
+  recuperarPos();
+  pintar();
+
+  // superficie de inspeccion: rAF no corre con la pestaña oculta
+  window.LAB = {
+    pintar: pintar, placas: placas,
+    getEtapa: function () { return etapa; },
+    setEtapa: function (v) { etapa = v; },
+    setFase: function (v) { fase = Math.min(v, FASE_INICIO); return pintar(); },
+    getFase: function () { return fase; },
+    setPan: function (v) { pan = Math.max(0, Math.min(v, PAN_MAX)); return pintar(); },
+    getPan: function () { return pan; },
+    getModo: function () { return modo; },
+    rueda: function (dy, cx, cy) {
+      if (etapa !== "front") return false;
+      if (sobreArmario(cx, cy)) { modo = "cadena"; moverFase(-dy / (PPM * escala)); }
+      else { modo = "camara"; moverPan(dy / escala); }
+      pintar(); return true;
+    },
+    sobreArmario: sobreArmario,
+    getEscala: function () { return escala; },
+    guardarPos: guardarPos, recuperarPos: recuperarPos,
+    leerGuardado: function () { try { return localStorage.getItem(CLAVE); } catch (e) { return null; } },
+    borrarGuardado: function () { try { localStorage.removeItem(CLAVE); } catch (e) {} },
+    cuadros: cuadros,
+    ctes: { PPM: PPM, PX_Z0: PX_Z0, PLACA_H: PLACA_H, ABERT_TOP: ABERT_TOP,
+            ALTO_IMG: ALTO_IMG, PAN_MAX: PAN_MAX, FASE_INICIO: FASE_INICIO,
+            L_RECTA: L_RECTA, L_TOTAL: L_TOTAL, N: N, PASO: PASO,
+            Z_TOP: Z_TOP, MARGEN: MARGEN, STAGE_W: STAGE_W, STAGE_H: STAGE_H }
+  };
+})();
+</script>
 </body>
 </html>
