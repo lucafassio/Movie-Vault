@@ -37,23 +37,25 @@
   }
 
   /* --- etapa frontal ---
-     las capas se hornean en un canvas alto (2816x2648) que cubre todo el recorrido
+     las capas se hornean en un canvas alto (2816x3403) que cubre todo el recorrido
      vertical de camara. como la camara es ortografica, moverla en Z es una
-     traslacion pura de pixeles: el paneo es un translateY, no un re-render. */
-  #pan { position: absolute; top: 0; left: 0; width: 2816px; height: 2648px;
+     traslacion pura de pixeles: el paneo es un translateY, no un re-render.
+     encuadre: el armario (shelf-frame) ocupa 75% del ancho de pantalla (12.5%
+     de margen por lado) y su techo cae al 10% desde arriba de #stage. */
+  #pan { position: absolute; top: 0; left: 0; width: 2816px; height: 3403px;
          will-change: transform; }
-  .capa-alta { position: absolute; top: 0; left: 0; width: 2816px; height: 2648px; }
+  .capa-alta { position: absolute; top: 0; left: 0; width: 2816px; height: 3403px; }
   #f-scene { z-index: 1; }
   #f-back  { z-index: 2; }
   #plates {
     position: absolute; overflow: hidden; z-index: 3;
-    left: 798.04px; top: 459.69px; width: 1219.93px; height: 1626.57px;
+    left: 433.23px; top: 397.38px; width: 1949.54px; height: 2599.38px;
   }
   #f-frame { z-index: 4; }
   /* sonda de geometria: define que cuenta como "encima del armario" */
   #zona-armario {
     position: absolute; z-index: 5; pointer-events: none;
-    left: 747.21px; top: 307.20px; width: 1321.59px; height: 2033.21px;
+    left: 352.00px; top: 153.68px; width: 2112.00px; height: 3249.23px;
   }
   /* --- estante ---
      caja de 3 caras (frente / arriba / abajo) en vez de una placa plana: al girar,
@@ -62,14 +64,16 @@
      el frente escorza por cos(t) y la tapa crece por sin(t) sin deformarse.
      cada .cara lleva su propio render ortografico dead-on de esa cara de la bandeja,
      asi que la textura y la geometria son la misma cosa.
-     bandeja 1.10 x 0.17 x 0.22 m -> 1118 x 173 x 224 px a 1016.6065 px/m. la
-     profundidad entra en los 0.27 m que separan el tramo frontal del trasero
-     (2 * R_POLEA) y le sobra para una caja de DVD parada (0.135).
-     left: la bandeja arranca en x=0.594 de mundo -> (0.594-1.144)*PPM + 1408 = 848.87
-     en la imagen alta, menos los 798.04 donde empieza la abertura. */
+     bandeja 1.10 x 0.17 x 0.22 m -> 1787.08 x 173 x 357.42 px a 1624.6153 px/m
+     (el ancho/alto de bandeja escalan con PPM; profundidad y textura de las
+     caras vienen de cam-tray-front/-top/-bottom, resolucion propia sin relacion
+     con esta escala). la profundidad entra en los 0.27 m que separan el tramo
+     frontal del trasero (2 * R_POLEA) y le sobra para una caja de DVD parada
+     (0.135). left: 81.23px = borde izquierdo de la abertura (loop-ph-00)
+     menos el borde izquierdo de #plates (shelf-void), ambos proyectados. */
   .plate {
-    position: absolute; top: 0; left: 50.83px;
-    width: 1118px; height: 224px;
+    position: absolute; top: 0; left: 81.23px;
+    width: 1787.08px; height: 357.42px;
     transform-style: preserve-3d;
     will-change: transform;
   }
@@ -84,8 +88,8 @@
   .plate.girando .cara-arriba, .plate.girando .cara-abajo { display: block; }
   .cara { background-size: 100% 100%; }
   .cara-frente {
-    width: 1118px; height: 224px;
-    transform: translate(-50%, -50%) translateZ(86.41px);
+    width: 1787.08px; height: 357.42px;
+    transform: translate(-50%, -50%) translateZ(138.09px);
     background-image: url("renders/layers/front/tray--front.png");
   }
   /* mientras el estante gira, uno de sus dos cantos se esta metiendo en la madera:
@@ -113,15 +117,15 @@
      manda el +y local hacia el observador), y el render de arriba sale con el
      frente de la bandeja abajo. calzan sin espejar */
   .cara-arriba {
-    width: 1118px; height: 173px;
-    transform: translate(-50%, -50%) translateY(-112px) rotateX(90deg);
+    width: 1787.08px; height: 276.18px;
+    transform: translate(-50%, -50%) translateY(-178.71px) rotateX(90deg);
     background-image: url("renders/layers/front/tray--top.png");
   }
   /* fondo del estante: aca el borde de adelante es el SUPERIOR (rotateX(-90deg)),
      y el render de abajo sale con el frente arriba. tambien calza derecho */
   .cara-abajo {
-    width: 1118px; height: 173px;
-    transform: translate(-50%, -50%) translateY(112px) rotateX(-90deg);
+    width: 1787.08px; height: 276.18px;
+    transform: translate(-50%, -50%) translateY(178.71px) rotateX(-90deg);
     background-image: url("renders/layers/front/tray--bottom.png");
   }
 
@@ -178,17 +182,17 @@
   "use strict";
 
   // ---- mapeo, medido sobre la imagen alta horneada desde cam-travel ----
-  var PPM = 1016.6065;          // px por metro
-  var PX_Z0 = 2340.4130;        // fila donde cae world z = 0, en la imagen alta
-  var PLACA_H = 224;            // alto del estante: 0.22 m (PH_Z) a 1016.6065 px/m
-  var ABERT_TOP = 459.69;       // borde superior de la abertura, origen del recorte
-  var ALTO_IMG = 2648;          // alto de la imagen horneada
+  var PPM = 1624.6153;          // px por metro
+  var PX_Z0 = 3402.9151;        // fila donde cae world z = 0, en la imagen alta
+  var PLACA_H = 357.42;         // alto del estante: 0.22 m (PH_Z) a 1624.6153 px/m
+  var ABERT_TOP = 397.3767;     // borde superior de la abertura, origen del recorte
+  var ALTO_IMG = 3403;          // alto de la imagen horneada
   var STAGE_W = 2816, STAGE_H = 1536;
 
   // recorrido de camara: 0 = posicion inicial (limite superior).
   // el maximo pone la linea del piso (z=0, fila PX_Z0) en el borde inferior del
   // cuadro, asi la vista nunca se sale de la habitacion.
-  var PAN_MAX = PX_Z0 - STAGE_H;      // 804.413
+  var PAN_MAX = PX_Z0 - STAGE_H;      // 1866.915
 
   // ---- parametros del loop, mismos que el .blend ----
   // arriba el estante va pegado al dintel; abajo queda junta negra a la vista.
@@ -322,7 +326,7 @@
   // ---- encuadre ----
   var escala = 1;
   function encuadrar() {
-    escala = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H) * 0.96;
+    escala = Math.max(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
     $("fit").style.transform = "translate(" +
       ((window.innerWidth - STAGE_W * escala) / 2).toFixed(1) + "px," +
       ((window.innerHeight - STAGE_H * escala) / 2).toFixed(1) + "px) scale(" + escala + ")";
