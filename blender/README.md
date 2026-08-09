@@ -10,6 +10,8 @@ Archivos fuente de la escena. El contexto vive en
 |---|---|
 | `scene-base.blend` | Escena maestra. Collections: `_camera` (camaras de vista + `cam-travel` para la vista alta del lab + `cam-lamp-wip` y `cam-diag-side`, que son solo de preview), `_lights` (`win-light` area 15 W, `lamp-light` point 30 W a 3000K, `lamp-fill`), `room-shell` (paredes + piso, paso 1), `shelf-carcass` (`shelf-frame` + `shelf-void`, paso 3), `shelf-loop` (13 estantes + cadenas y sprockets), `desk` (escritorio), `lamp` (velador, paso 4), `tray` (la bandeja del paternoster) y `_tray-rig` (`rig-front` sol, `rig-fill`, `rig-bounce`), las dos excluidas del view layer. Los parametros de camara son los del propio `.blend`; la copia legible esta en `../.claude/CLAUDE.md`. |
 | `dvd-case-test.blend` | Backup de la escena de prueba del DVD de la sesion anterior. No es parte de la escena. |
+| `render-front.py` | Rehace `front-scene.png`/`front-back.png`/`front-frame.png` desde `cam-travel`. Recipe reconstruido el 2026-08-08 (no habia quedado guardado en el .blend) — detalle en el docstring del script. |
+| `render-travel.py` | Rehace las 24 capas `travel-00..23.png` del viaje room->front. No hay camara transicional guardada en el `.blend`: el script arma una camara temporal, interpola desde `cam-room` (arranque, CONGELADA) hasta un estado final derivado de `cam-travel` (CONGELADA) por `world_to_camera_view`, y la borra al terminar. Detalle completo en el docstring del script. |
 
 ## Reglas que no se negocian
 
@@ -30,7 +32,7 @@ Archivos fuente de la escena. El contexto vive en
    |---|---|---|
    | `cam-room` | 2816 x 1536 | 605.0 px/m |
    | `cam-shelf` | 2816 x 2846 | 1482.1053 px/m |
-   | `cam-travel` | 2816 x 2648 | 1016.6065 px/m |
+   | `cam-travel` | 2816 x 3403 | 1624.6153 px/m |
 
    **Excepcion: los sprites de cara del estante.** `tray--front` (1118x224),
    `tray--top` y `tray--bottom` (1118x173) se renderizan al tamaño exacto de la cara

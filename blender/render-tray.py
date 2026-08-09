@@ -34,10 +34,10 @@ import bpy
 import os
 
 CORRIMIENTO_LIP = 0.014
-CARAS = {                         # cara: (camara, ancho, alto) a 1016.36 px/m
-    "front": ("cam-tray-front", 1118, 224),
-    "top": ("cam-tray-top", 1118, 173),
-    "bottom": ("cam-tray-bottom", 1118, 173),
+CARAS = {                         # cara: (camara, ancho, alto) a 1016.36 px/m (bandeja 1.142 m, 2026-08-08 riel pegado a la tabla real, carcasa intacta)
+    "front": ("cam-tray-front", 1161, 224),
+    "top": ("cam-tray-top", 1161, 173),
+    "bottom": ("cam-tray-bottom", 1161, 173),
 }
 
 

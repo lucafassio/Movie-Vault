@@ -52,6 +52,20 @@
     left: 433.23px; top: 397.38px; width: 1949.54px; height: 2599.38px;
   }
   #f-frame { z-index: 4; }
+  /* zocalo estirado: la misma tabla de front-frame.png, mas alta. ancla el
+     borde de ABAJO (fijo, y=3403) y estira el borde de ARRIBA hacia arriba
+     para tapar el hueco que deja la ultima bandeja, dejando ~12px de margen
+     negro antes de la bandeja/riel (no se tocan). va despues de #f-frame en
+     el DOM asi cubre la tabla original sin estirar que queda debajo. */
+  #f-zocalo-estirado {
+    position: absolute; z-index: 4; pointer-events: none;
+    left: 0; top: 2932.95px; width: 2816px; height: 470.05px;
+    overflow: hidden;
+  }
+  #f-zocalo-estirado img {
+    position: absolute; left: 0; top: -3467.05px;
+    width: 2816px; height: 3935.4px;
+  }
   /* sonda de geometria: define que cuenta como "encima del armario" */
   #zona-armario {
     position: absolute; z-index: 5; pointer-events: none;
@@ -64,16 +78,18 @@
      el frente escorza por cos(t) y la tapa crece por sin(t) sin deformarse.
      cada .cara lleva su propio render ortografico dead-on de esa cara de la bandeja,
      asi que la textura y la geometria son la misma cosa.
-     bandeja 1.10 x 0.17 x 0.22 m -> 1787.08 x 173 x 357.42 px a 1624.6153 px/m
+     bandeja 1.142 x 0.17 x 0.22 m -> 1855.31 x 173 x 357.42 px a 1624.6153 px/m
      (el ancho/alto de bandeja escalan con PPM; profundidad y textura de las
      caras vienen de cam-tray-front/-top/-bottom, resolucion propia sin relacion
      con esta escala). la profundidad entra en los 0.27 m que separan el tramo
      frontal del trasero (2 * R_POLEA) y le sobra para una caja de DVD parada
-     (0.135). left: 81.23px = borde izquierdo de la abertura (loop-ph-00)
-     menos el borde izquierdo de #plates (shelf-void), ambos proyectados. */
+     (0.135). 2026-08-08: riel pegado a la tabla real (shelf-void/shelf-frame
+     SIN TOCAR, siguen en 0.544/1.744 y 0.494/1.794 como siempre), gap
+     estante-riel intacto en 19mm. left: 47.11px = borde de bandeja (0.573)
+     menos borde de #plates (shelf-void, 0.544), proyectado. */
   .plate {
-    position: absolute; top: 0; left: 81.23px;
-    width: 1787.08px; height: 357.42px;
+    position: absolute; top: 0; left: 47.11px;
+    width: 1855.31px; height: 357.42px;
     transform-style: preserve-3d;
     will-change: transform;
   }
@@ -88,7 +104,7 @@
   .plate.girando .cara-arriba, .plate.girando .cara-abajo { display: block; }
   .cara { background-size: 100% 100%; }
   .cara-frente {
-    width: 1787.08px; height: 357.42px;
+    width: 1855.31px; height: 357.42px;
     transform: translate(-50%, -50%) translateZ(138.09px);
     background-image: url("renders/layers/front/tray--front.png");
   }
@@ -117,14 +133,14 @@
      manda el +y local hacia el observador), y el render de arriba sale con el
      frente de la bandeja abajo. calzan sin espejar */
   .cara-arriba {
-    width: 1787.08px; height: 276.18px;
+    width: 1855.31px; height: 276.18px;
     transform: translate(-50%, -50%) translateY(-178.71px) rotateX(90deg);
     background-image: url("renders/layers/front/tray--top.png");
   }
   /* fondo del estante: aca el borde de adelante es el SUPERIOR (rotateX(-90deg)),
      y el render de abajo sale con el frente arriba. tambien calza derecho */
   .cara-abajo {
-    width: 1787.08px; height: 276.18px;
+    width: 1855.31px; height: 276.18px;
     transform: translate(-50%, -50%) translateY(178.71px) rotateX(-90deg);
     background-image: url("renders/layers/front/tray--bottom.png");
   }
@@ -166,6 +182,7 @@
         <img class="capa-alta" id="f-back"  src="renders/layers/front/front-back.png"  alt="" draggable="false">
         <div id="plates"></div>
         <img class="capa-alta" id="f-frame" src="renders/layers/front/front-frame.png" alt="" draggable="false">
+        <div id="f-zocalo-estirado"><img src="renders/layers/front/front-frame.png" alt="" draggable="false"></div>
         <div id="zona-armario"></div>
       </div>
     </div>
@@ -193,6 +210,9 @@
   // el maximo pone la linea del piso (z=0, fila PX_Z0) en el borde inferior del
   // cuadro, asi la vista nunca se sale de la habitacion.
   var PAN_MAX = PX_Z0 - STAGE_H;      // 1866.915
+  // limite superior: no dejar subir la camara hasta el techo del armario
+  // (153.68px, ver #zona-armario) - solo unos 20px de pared por encima.
+  var PAN_MIN = 133.68;
 
   // ---- parametros del loop, mismos que el .blend ----
   // arriba el estante va pegado al dintel; abajo queda junta negra a la vista.
@@ -219,7 +239,7 @@
   // que va en z-index 4 sobre el 3 de #plates. medido con elementFromPoint.
   var S_PRE = 0.12;
 
-  var K_VIAJE = 24, MS_VIAJE = 820;
+  var K_VIAJE = 40, MS_VIAJE = 650;
 
   // avanzar = rueda hacia abajo = las placas suben = fase negativa.
   // el arranque es fase 0 y es tope duro.
@@ -238,7 +258,7 @@
   }
   function moverPan(delta) {
     var v = pan + delta;
-    if (v < 0) v = 0;
+    if (v < PAN_MIN) v = PAN_MIN;
     if (v > PAN_MAX) v = PAN_MAX;
     if (v !== pan) { pan = v; sucio = true; }
   }
@@ -289,7 +309,8 @@
         var top = PX_Z0 - (Z_TOP - s) * PPM - PLACA_H / 2 - ABERT_TOP;
         var giro = 0, origen = "50% 50%", som = 0, somAbajo = false;
         if (s < S_LIM_SUP + S_PRE) {
-          som = (S_LIM_SUP + S_PRE - s) / (S_PRE + ARCO);
+          // sombra-sup deshabilitada a proposito: solo se saca la del arco de
+          // arriba, la de abajo (somAbajo) sigue igual.
           if (s < S_LIM_SUP) {
             // sale por arriba: pivota en su cara de arriba, la que ya entro en la madera
             giro = 90 * Math.min(1, (S_LIM_SUP - s) / ARCO);
@@ -341,10 +362,14 @@
   }
 
   // ---- viaje ----
+  // bustea los frames del viaje: se rehacen seguido y el navegador los cachea por
+  // nombre (mismo archivo, contenido nuevo) - sin esto se ven mezclados frames viejos
+  // y nuevos dentro de la misma secuencia.
+  var BUST_VIAJE = Date.now();
   var cuadros = [];
   for (var f = 0; f < K_VIAJE; f++) {
     var im = new Image();
-    im.src = "renders/layers/travel/travel-" + (f < 10 ? "0" + f : f) + ".png";
+    im.src = "renders/layers/travel/travel-" + (f < 10 ? "0" + f : f) + ".png?v=" + BUST_VIAJE;
     cuadros.push(im);
   }
   function viajar(haciaFront, alTerminar) {
@@ -368,7 +393,7 @@
     if (etapa !== "room") return;
     viajar(true, function () {
       etapa = "front";
-      pan = 0;                  // el viaje termina en la posicion inicial de camara
+      pan = PAN_MIN;             // el viaje termina en la posicion inicial de camara
       $("etapa-front").hidden = false;
       $("volver").hidden = false;
       $("d-etapa").textContent = "front";
@@ -441,7 +466,7 @@
       $("d-fila").textContent = (-fase / PASO).toFixed(2)
         + (fase >= FASE_INICIO ? " INICIO" : "");
       $("d-pan").textContent = pan.toFixed(0) + "/" + PAN_MAX.toFixed(0)
-        + (pan <= 0 ? " TOPE" : pan >= PAN_MAX ? " FONDO" : "");
+        + (pan <= PAN_MIN ? " TOPE" : pan >= PAN_MAX ? " FONDO" : "");
       $("d-modo").textContent = etapa === "front" ? modo : "--";
       sucio = false;
     }
@@ -459,7 +484,7 @@
     setEtapa: function (v) { etapa = v; },
     setFase: function (v) { fase = Math.min(v, FASE_INICIO); return pintar(); },
     getFase: function () { return fase; },
-    setPan: function (v) { pan = Math.max(0, Math.min(v, PAN_MAX)); return pintar(); },
+    setPan: function (v) { pan = Math.max(PAN_MIN, Math.min(v, PAN_MAX)); return pintar(); },
     getPan: function () { return pan; },
     getModo: function () { return modo; },
     rueda: function (dy, cx, cy) {
@@ -475,7 +500,7 @@
     borrarGuardado: function () { try { localStorage.removeItem(CLAVE); } catch (e) {} },
     cuadros: cuadros,
     ctes: { PPM: PPM, PX_Z0: PX_Z0, PLACA_H: PLACA_H, ABERT_TOP: ABERT_TOP,
-            ALTO_IMG: ALTO_IMG, PAN_MAX: PAN_MAX, FASE_INICIO: FASE_INICIO,
+            ALTO_IMG: ALTO_IMG, PAN_MAX: PAN_MAX, PAN_MIN: PAN_MIN, FASE_INICIO: FASE_INICIO,
             L_RECTA: L_RECTA, L_TOTAL: L_TOTAL, N: N, PASO: PASO,
             Z_TOP: Z_TOP, MARGEN: MARGEN, STAGE_W: STAGE_W, STAGE_H: STAGE_H }
   };
