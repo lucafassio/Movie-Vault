@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { loadOmdb } = require("./load-omdb");
+const { loadTestData } = require("./load-omdb");
+const testData = loadTestData();
 
 const omdb = loadOmdb();
 
@@ -132,4 +134,53 @@ test("isMissing trata el espacio en blanco como ausente pero no al cero", functi
 test("parseSeriesDuration acepta totalSeasons como numero y no solo como string", function () {
   assert.equal(omdb.parseSeriesDuration(5, 0), "5 temp");
   assert.equal(omdb.parseSeriesDuration(1, 8), "8 eps");
+});
+
+test("mapTitle arma el shape completo de una pelicula", function () {
+  const mapped = omdb.mapTitle(testData.RAW.movie, 0);
+  assert.deepEqual(mapped, {
+    title: "Shutter Island",
+    releaseDate: "19/02/2010",
+    duration: "2h 18min",
+    imdbRating: 8.2,
+    parental: "R",
+    genres: "Mystery - Thriller",
+    country: "United States",
+    actors: ["Leonardo DiCaprio", "Emily Mortimer", "Mark Ruffalo"],
+    imdbLink: "https://www.imdb.com/es/title/tt1130884/",
+    poster: "https://m.media-amazon.com/images/M/shutter.jpg",
+    type: "movie"
+  });
+});
+
+test("mapTitle mide una serie de varias temporadas en temporadas", function () {
+  const mapped = omdb.mapTitle(testData.RAW.seriesMultiSeason, 0);
+  assert.equal(mapped.duration, "5 temp");
+  assert.equal(mapped.type, "series");
+});
+
+test("mapTitle mide una serie de temporada unica en episodios", function () {
+  const episodeCount = testData.RAW.seasonOneOfWonderMan.Episodes.length;
+  const mapped = omdb.mapTitle(testData.RAW.seriesOneSeason, episodeCount);
+  assert.equal(mapped.duration, "8 eps");
+});
+
+test("mapTitle ignora el Runtime por episodio de una serie", function () {
+  const mapped = omdb.mapTitle(testData.RAW.seriesMultiSeason, 0);
+  assert.notEqual(mapped.duration, "51min");
+});
+
+test("mapSearchItem deja el poster vacio cuando omdb manda N/A", function () {
+  const items = testData.RAW.search.Search.map(omdb.mapSearchItem);
+  assert.equal(items[0].title, "Dune: Part One");
+  assert.equal(items[0].poster, "https://m.media-amazon.com/images/M/dune1.jpg");
+  assert.equal(items[1].poster, "");
+  assert.equal(items[1].imdbID, "tt15239678");
+});
+
+test("EXPECTED cubre las diez peliculas de la coleccion", function () {
+  assert.equal(testData.EXPECTED.length, 10);
+  testData.EXPECTED.forEach(function (movie) {
+    assert.match(movie.imdbID, /^tt\d+$/);
+  });
 });

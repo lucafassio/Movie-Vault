@@ -96,6 +96,33 @@ MV.omdb = (function () {
     return "https://www.imdb.com/es/title/" + imdbID + "/";
   }
 
+  function mapTitle(raw, episodeCount) {
+    const isSeries = raw.Type === "series";
+    return {
+      title: isMissing(raw.Title) ? "-" : raw.Title,
+      releaseDate: parseReleased(raw.Released, raw.Year),
+      duration: isSeries ? parseSeriesDuration(raw.totalSeasons, episodeCount) : parseRuntime(raw.Runtime),
+      imdbRating: parseRating(raw.imdbRating),
+      parental: isMissing(raw.Rated) ? "-" : raw.Rated,
+      genres: parseGenres(raw.Genre),
+      country: isMissing(raw.Country) ? "-" : raw.Country,
+      actors: parseActors(raw.Actors),
+      imdbLink: imdbLink(raw.imdbID),
+      poster: isMissing(raw.Poster) ? "" : raw.Poster,
+      type: raw.Type
+    };
+  }
+
+  function mapSearchItem(raw) {
+    return {
+      title: raw.Title,
+      year: raw.Year,
+      imdbID: raw.imdbID,
+      type: raw.Type,
+      poster: isMissing(raw.Poster) ? "" : raw.Poster
+    };
+  }
+
   return {
     isMissing: isMissing,
     parseReleased: parseReleased,
@@ -104,6 +131,8 @@ MV.omdb = (function () {
     parseGenres: parseGenres,
     parseActors: parseActors,
     parseRating: parseRating,
-    imdbLink: imdbLink
+    imdbLink: imdbLink,
+    mapTitle: mapTitle,
+    mapSearchItem: mapSearchItem
   };
 })();
