@@ -1,9 +1,9 @@
-// carga js/omdb.js tal cual esta, sin tocarle el estilo de script clasico: lo corremos dentro de un vm con un window falso
-// asi el mismo archivo que sirve el browser es el que testeamos, sin ES modules ni bundler
+// carga los scripts clasicos de js/ tal cual estan, sin tocarles el estilo ni convertirlos a modulos
+// corren en el realm del proceso y no en uno nuevo de vm a proposito: un array creado dentro de un vm no es Array del host y assert/strict falla por identidad de prototipo aunque el contenido sea igual
+// ojo: al correr en el realm del host, fetch es el fetch real de node, asi que no escribir tests que llamen a search ni a getTitle
 
 const fs = require("node:fs");
 const path = require("node:path");
-const vm = require("node:vm");
 
 const ROOT = path.join(__dirname, "..");
 
@@ -25,16 +25,16 @@ function createFakeLocalStorage() {
 }
 
 function loadScripts(relativePaths) {
-  // window tiene que ser el propio contexto (como en un browser real window === globalThis)
-  // asi "window.MV = ..." tambien deja "MV" como global suelta, que es como esta escrito js/omdb.js
-  const context = { URL: URL, URLSearchParams: URLSearchParams, console: console, localStorage: createFakeLocalStorage() };
-  context.window = context;
-  vm.createContext(context);
+  // window tiene que ser el propio sandbox porque en un browser real window === globalThis
+  // el with(window) hace que la "MV" suelta resuelva contra el sandbox, que es como esta escrito js/omdb.js
+  const sandbox = { localStorage: createFakeLocalStorage() };
+  sandbox.window = sandbox;
   relativePaths.forEach(function (relativePath) {
     const source = fs.readFileSync(path.join(ROOT, relativePath), "utf8");
-    vm.runInContext(source, context, { filename: relativePath });
+    const factory = new Function("window", "localStorage", "with (window) {\n" + source + "\n}");
+    factory(sandbox, sandbox.localStorage);
   });
-  return context.window.MV;
+  return sandbox.MV;
 }
 
 function loadOmdb() {
