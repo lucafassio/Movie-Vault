@@ -37,3 +37,32 @@ test("isMissing reconoce el N/A literal que manda omdb y los vacios", function (
   assert.equal(omdb.isMissing("R"), false);
   assert.equal(omdb.isMissing(0), false);
 });
+
+test("parseRuntime pasa los minutos de omdb al formato de la coleccion", function () {
+  assert.equal(omdb.parseRuntime("138 min"), "2h 18min");
+  assert.equal(omdb.parseRuntime("166 min"), "2h 46min");
+  assert.equal(omdb.parseRuntime("101 min"), "1h 41min");
+});
+
+test("parseRuntime rellena los minutos con cero a la izquierda", function () {
+  assert.equal(omdb.parseRuntime("127 min"), "2h 07min");
+});
+
+test("parseRuntime devuelve guion cuando no hay duracion", function () {
+  assert.equal(omdb.parseRuntime("N/A"), "-");
+  assert.equal(omdb.parseRuntime(undefined), "-");
+});
+
+test("parseSeriesDuration cuenta temporadas cuando hay mas de una", function () {
+  assert.equal(omdb.parseSeriesDuration("5", 0), "5 temp");
+  assert.equal(omdb.parseSeriesDuration("3", 0), "3 temp");
+});
+
+test("parseSeriesDuration cuenta episodios cuando la serie tiene una sola temporada", function () {
+  assert.equal(omdb.parseSeriesDuration("1", 8), "8 eps");
+});
+
+test("parseSeriesDuration cae a temporadas si la temporada unica no trae episodios", function () {
+  assert.equal(omdb.parseSeriesDuration("1", 0), "1 temp");
+  assert.equal(omdb.parseSeriesDuration("N/A", 0), "-");
+});

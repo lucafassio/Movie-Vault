@@ -26,8 +26,36 @@ MV.omdb = (function () {
     return "-";
   }
 
+  function parseRuntime(runtime) {
+    if (isMissing(runtime)) {
+      return "-";
+    }
+    const minutes = parseInt(runtime, 10);
+    if (isNaN(minutes)) {
+      return "-";
+    }
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    // los minutos van con cero a la izquierda porque asi estan escritos en la coleccion ("2h 07min")
+    return hours + "h " + String(rest).padStart(2, "0") + "min";
+  }
+
+  function parseSeriesDuration(totalSeasons, episodeCount) {
+    const seasons = parseInt(totalSeasons, 10);
+    // una serie de temporada unica se anota en episodios, no en temporadas (Wonder Man = "8 eps")
+    if (seasons === 1 && episodeCount > 0) {
+      return episodeCount + " eps";
+    }
+    if (seasons > 0) {
+      return seasons + " temp";
+    }
+    return "-";
+  }
+
   return {
     isMissing: isMissing,
-    parseReleased: parseReleased
+    parseReleased: parseReleased,
+    parseRuntime: parseRuntime,
+    parseSeriesDuration: parseSeriesDuration
   };
 })();
