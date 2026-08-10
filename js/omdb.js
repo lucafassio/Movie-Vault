@@ -8,7 +8,14 @@ MV.omdb = (function () {
 
   // omdb marca todo lo que le falta con el string literal "N/A", no con null ni con el campo ausente
   function isMissing(value) {
-    return value === undefined || value === null || value === "" || value === "N/A";
+    if (value === undefined || value === null) {
+      return true;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed === "" || trimmed === "N/A";
+    }
+    return false;
   }
 
   function parseReleased(released, year) {
@@ -36,6 +43,9 @@ MV.omdb = (function () {
     }
     const hours = Math.floor(minutes / 60);
     const rest = minutes % 60;
+    if (hours === 0) {
+      return rest + "min";
+    }
     // los minutos van con cero a la izquierda porque asi estan escritos en la coleccion ("2h 07min")
     return hours + "h " + String(rest).padStart(2, "0") + "min";
   }
@@ -56,7 +66,7 @@ MV.omdb = (function () {
     if (isMissing(genre)) {
       return "-";
     }
-    return String(genre).split(",").map(function (name) { return name.trim(); }).join(" - ");
+    return String(genre).split(",").map(function (name) { return name.trim(); }).filter(Boolean).join(" - ");
   }
 
   // omdb no devuelve el personaje, solo el nombre del actor: "Leonardo DiCaprio (Teddy Daniels)" no se puede reconstruir desde aca
@@ -64,11 +74,15 @@ MV.omdb = (function () {
     if (isMissing(actors)) {
       return [];
     }
-    return String(actors).split(",").map(function (name) { return name.trim(); });
+    return String(actors).split(",").map(function (name) { return name.trim(); }).filter(Boolean);
   }
 
   function parseRating(imdbRating) {
     if (isMissing(imdbRating)) {
+      return null;
+    }
+    // parseFloat parsea de a pedazos y "8,2" le sale 8: chequeamos la forma antes para que un valor raro caiga en null y no en un numero equivocado
+    if (!/^\d+(\.\d+)?$/.test(String(imdbRating).trim())) {
       return null;
     }
     const rating = parseFloat(imdbRating);

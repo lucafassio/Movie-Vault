@@ -100,3 +100,36 @@ test("imdbLink arma la url en el locale es que usa la coleccion", function () {
 test("imdbLink devuelve string vacio sin id", function () {
   assert.equal(omdb.imdbLink("N/A"), "");
 });
+
+test("parseGenres ignora comas colgadas", function () {
+  assert.equal(omdb.parseGenres("Drama,"), "Drama");
+  assert.equal(omdb.parseGenres("Drama,, Horror"), "Drama - Horror");
+});
+
+test("parseActors ignora comas colgadas y no inventa actores vacios", function () {
+  assert.deepEqual(omdb.parseActors("Brad Pitt,"), ["Brad Pitt"]);
+  assert.deepEqual(omdb.parseActors("Brad Pitt,, Morgan Freeman"), ["Brad Pitt", "Morgan Freeman"]);
+});
+
+test("parseRuntime no escribe la hora cuando la duracion no llega a una", function () {
+  assert.equal(omdb.parseRuntime("45 min"), "45min");
+  assert.equal(omdb.parseRuntime("60 min"), "1h 00min");
+});
+
+test("parseRating devuelve null cuando el puntaje no tiene forma de numero", function () {
+  assert.equal(omdb.parseRating("8,2"), null);
+  assert.equal(omdb.parseRating("ocho"), null);
+  assert.equal(omdb.parseRating("8.2/10"), null);
+});
+
+test("isMissing trata el espacio en blanco como ausente pero no al cero", function () {
+  assert.equal(omdb.isMissing("   "), true);
+  assert.equal(omdb.isMissing(" N/A "), true);
+  assert.equal(omdb.isMissing(0), false);
+  assert.equal(omdb.isMissing(false), false);
+});
+
+test("parseSeriesDuration acepta totalSeasons como numero y no solo como string", function () {
+  assert.equal(omdb.parseSeriesDuration(5, 0), "5 temp");
+  assert.equal(omdb.parseSeriesDuration(1, 8), "8 eps");
+});

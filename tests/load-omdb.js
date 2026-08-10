@@ -29,8 +29,13 @@ function loadScripts(relativePaths) {
   // el with(window) hace que la "MV" suelta resuelva contra el sandbox, que es como esta escrito js/omdb.js
   const sandbox = { localStorage: createFakeLocalStorage() };
   sandbox.window = sandbox;
+  // fetch explota a proposito: corriendo en el realm del proceso el fetch real de node esta a mano y un test distraido pegaria contra omdb de verdad
+  sandbox.fetch = function () {
+    throw new Error("los tests no pueden llamar a search ni a getTitle: aca fetch pega contra la api real");
+  };
   relativePaths.forEach(function (relativePath) {
     const source = fs.readFileSync(path.join(ROOT, relativePath), "utf8");
+    // el script no puede declarar "use strict": with es ilegal en modo estricto y el loader tira SyntaxError
     const factory = new Function("window", "localStorage", "with (window) {\n" + source + "\n}");
     factory(sandbox, sandbox.localStorage);
   });
