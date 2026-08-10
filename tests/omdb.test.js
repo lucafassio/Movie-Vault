@@ -184,3 +184,47 @@ test("EXPECTED cubre las diez peliculas de la coleccion", function () {
     assert.match(movie.imdbID, /^tt\d+$/);
   });
 });
+
+test("buildUrl mete la key y los parametros en la query", function () {
+  const url = omdb.buildUrl({ i: "tt1130884", plot: "short" }, "abc123");
+  assert.match(url, /^https:\/\/www\.omdbapi\.com\/\?/);
+  assert.match(url, /apikey=abc123/);
+  assert.match(url, /i=tt1130884/);
+  assert.match(url, /plot=short/);
+});
+
+test("buildUrl escapa el texto de busqueda", function () {
+  const url = omdb.buildUrl({ s: "shutter island" }, "abc123");
+  assert.match(url, /s=shutter\+island/);
+});
+
+test("parseCache descarta un cache corrupto en vez de tumbar la busqueda", function () {
+  assert.deepEqual(omdb.parseCache("{ esto no es json"), {});
+  assert.deepEqual(omdb.parseCache("null"), {});
+  assert.deepEqual(omdb.parseCache("5"), {});
+  assert.deepEqual(omdb.parseCache(null), {});
+  assert.deepEqual(omdb.parseCache(""), {});
+});
+
+test("parseCache devuelve el cache cuando el json esta sano", function () {
+  assert.deepEqual(omdb.parseCache('{"i:tt1130884":{"Title":"Shutter Island"}}'), { "i:tt1130884": { Title: "Shutter Island" } });
+});
+
+test("setKey y getKey guardan la key sin espacios sobrantes", function () {
+  const fresh = loadOmdb();
+  assert.equal(fresh.getKey(), "");
+  fresh.setKey("  abc123  ");
+  assert.equal(fresh.getKey(), "abc123");
+});
+
+test("clearCache vacia el cache guardado", function () {
+  const fresh = loadOmdb();
+  fresh.setKey("abc123");
+  assert.deepEqual(fresh.readCache(), {});
+  fresh.writeCache({ "i:tt0114369": { Title: "Se7en" } });
+  assert.deepEqual(fresh.readCache(), { "i:tt0114369": { Title: "Se7en" } });
+  fresh.clearCache();
+  assert.deepEqual(fresh.readCache(), {});
+  // la key no se toca al limpiar el cache, son dos cosas distintas
+  assert.equal(fresh.getKey(), "abc123");
+});

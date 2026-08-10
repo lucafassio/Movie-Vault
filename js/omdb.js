@@ -5,6 +5,11 @@ window.MV = window.MV || {};
 
 MV.omdb = (function () {
   const MONTHS = { Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06", Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12" };
+  const BASE_URL = "https://www.omdbapi.com/";
+  const KEY_STORAGE = "movievault.omdbKey";
+  const CACHE_STORAGE = "movievault.omdbCache";
+
+  // --- parseo puro ---
 
   // omdb marca todo lo que le falta con el string literal "N/A", no con null ni con el campo ausente
   function isMissing(value) {
@@ -123,6 +128,48 @@ MV.omdb = (function () {
     };
   }
 
+  // --- red y almacenamiento ---
+
+  // la key entra por parametro y no se lee de localStorage adentro para que esta funcion se pueda testear sin browser
+  function buildUrl(params, key) {
+    const url = new URL(BASE_URL);
+    url.searchParams.set("apikey", key);
+    Object.keys(params).forEach(function (name) {
+      url.searchParams.set(name, params[name]);
+    });
+    return url.toString();
+  }
+
+  function setKey(key) {
+    localStorage.setItem(KEY_STORAGE, String(key).trim());
+  }
+
+  function getKey() {
+    return localStorage.getItem(KEY_STORAGE) || "";
+  }
+
+  // un cache corrupto no puede tumbar la busqueda, se descarta y se vuelve a llenar
+  function parseCache(text) {
+    try {
+      const parsed = JSON.parse(text || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function readCache() {
+    return parseCache(localStorage.getItem(CACHE_STORAGE));
+  }
+
+  function writeCache(cache) {
+    localStorage.setItem(CACHE_STORAGE, JSON.stringify(cache));
+  }
+
+  function clearCache() {
+    localStorage.removeItem(CACHE_STORAGE);
+  }
+
   return {
     isMissing: isMissing,
     parseReleased: parseReleased,
@@ -133,6 +180,13 @@ MV.omdb = (function () {
     parseRating: parseRating,
     imdbLink: imdbLink,
     mapTitle: mapTitle,
-    mapSearchItem: mapSearchItem
+    mapSearchItem: mapSearchItem,
+    buildUrl: buildUrl,
+    setKey: setKey,
+    getKey: getKey,
+    parseCache: parseCache,
+    readCache: readCache,
+    writeCache: writeCache,
+    clearCache: clearCache
   };
 })();
