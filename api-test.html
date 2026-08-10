@@ -142,8 +142,68 @@
     }
   });
 
+  function normalize(value) {
+    if (Array.isArray(value)) {
+      return value.join(", ");
+    }
+    if (value === null || value === undefined) {
+      return "";
+    }
+    return String(value);
+  }
+
+  // tres estados a proposito: vacio es que omdb no tiene el dato, distinto es que lo tiene pero no coincide con la coleccion
+  function compare(expectedValue, actualValue) {
+    const actualText = normalize(actualValue);
+    if (actualText === "" || actualText === "-") {
+      return "empty";
+    }
+    return actualText === normalize(expectedValue) ? "ok" : "different";
+  }
+
+  const STATE_CLASS = { ok: "ok", different: "warn", empty: "bad" };
+  const STATE_LABEL = { ok: "ok", different: "dif", empty: "--" };
+
+  function runAsserts() {
+    const expected = MV.omdbTestData.EXPECTED;
+    const summaryBox = document.getElementById("summary");
+    const container = document.getElementById("tests-table");
+    summaryBox.textContent = "pidiendo " + expected.length + " titulos a omdb...";
+    container.innerHTML = "";
+
+    const rows = [];
+    const counts = { ok: 0, different: 0, empty: 0, error: 0 };
+
+    // en serie y no en paralelo para no disparar diez requests juntas contra el cupo diario
+    return expected.reduce(function (chain, movie) {
+      return chain.then(function () {
+        return MV.omdb.getTitle(movie.imdbID).then(function (result) {
+          const cells = FIELDS.map(function (field) {
+            const state = compare(movie[field], result.mapped[field]);
+            counts[state] = counts[state] + 1;
+            const tooltip = normalize(movie[field]) + "  ->  " + normalize(result.mapped[field]);
+            return '<td class="' + STATE_CLASS[state] + '" title="' + escapeHtml(tooltip) + '">' + STATE_LABEL[state] + "</td>";
+          });
+          rows.push("<tr><th>" + escapeHtml(movie.title) + "</th>" + cells.join("") + "</tr>");
+        }).catch(function (err) {
+          counts.error = counts.error + 1;
+          rows.push('<tr><th>' + escapeHtml(movie.title) + '</th><td class="bad" colspan="' + FIELDS.length + '">' + escapeHtml(err.message) + "</td></tr>");
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      const header = "<tr><th>titulo</th>" + FIELDS.map(function (field) { return "<th>" + field + "</th>"; }).join("") + "</tr>";
+      container.innerHTML = "<table>" + header + rows.join("") + "</table>";
+      summaryBox.innerHTML = 'asserts: <span class="ok">' + counts.ok + " ok</span> / " +
+        '<span class="warn">' + counts.different + " distintos</span> / " +
+        '<span class="bad">' + counts.empty + " vacios</span> / " +
+        counts.error + " errores  (pasar el mouse por una celda muestra esperado -> obtenido)";
+    });
+  }
+
+  document.getElementById("run-asserts").addEventListener("click", runAsserts);
+
   paintKeyStatus();
-  window.MV_TEST = { FIELDS: FIELDS };
+  window.MV_TEST = { FIELDS: FIELDS, runAsserts: runAsserts, compare: compare, normalize: normalize };
 })();
 </script>
 
