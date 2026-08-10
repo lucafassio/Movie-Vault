@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>movievault — prueba de api omdb</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 24px; background: #14161a; color: #e6e6e6; font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: #8a8f98; }
+  section { border: 1px solid #2a2e35; padding: 14px; margin-bottom: 16px; }
+  h2 { font-size: 13px; margin: 0 0 10px; color: #8a8f98; text-transform: uppercase; letter-spacing: 1px; }
+  input, button { font: inherit; background: #1c1f25; color: #e6e6e6; border: 1px solid #3a3f48; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button:hover { background: #262a31; }
+  #results div { padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #23262c; }
+  #results div:hover { background: #1c1f25; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #2a2e35; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { color: #8a8f98; font-weight: normal; }
+  pre { background: #0f1114; border: 1px solid #2a2e35; padding: 10px; overflow: auto; max-height: 320px; white-space: pre-wrap; word-break: break-word; }
+  .ok { color: #6bd27a; }
+  .warn { color: #e0b341; }
+  .bad { color: #e06c6c; }
+  .note { color: #8a8f98; }
+</style>
+</head>
+<body>
+
+<h1>movievault — prueba de api omdb</h1>
+<p class="sub">pagina descartable: solo comprueba que se puede buscar en omdb y extraer los campos que usa la coleccion</p>
+
+<section>
+  <h2>api key</h2>
+  <input id="key" type="text" size="30" placeholder="pegar la key de omdb">
+  <button id="save-key">guardar</button>
+  <button id="clear-cache">limpiar cache</button>
+  <span id="key-status" class="note"></span>
+</section>
+
+<section>
+  <h2>buscador</h2>
+  <input id="query" type="search" size="40" placeholder="titulo de pelicula o serie">
+  <button id="run-search">buscar</button>
+  <div id="results"></div>
+</section>
+
+<section>
+  <h2>ficha mapeada</h2>
+  <div id="mapped" class="note">elegi un resultado de la lista</div>
+  <h2 style="margin-top:14px">json crudo de omdb</h2>
+  <pre id="raw"></pre>
+</section>
+
+<section>
+  <h2>asserts contra la coleccion</h2>
+  <button id="run-asserts">correr asserts</button>
+  <div id="summary" class="note">sin correr</div>
+  <div id="tests-table"></div>
+</section>
+
+<script src="js/omdb.js"></script>
+<script src="js/omdb-testdata.js"></script>
+<script>
+(function () {
+  const FIELDS = ["title", "releaseDate", "duration", "imdbRating", "parental", "genres", "country", "actors"];
+
+  const keyInput = document.getElementById("key");
+  const keyStatus = document.getElementById("key-status");
+  const queryInput = document.getElementById("query");
+  const resultsList = document.getElementById("results");
+  const mappedCard = document.getElementById("mapped");
+  const rawJson = document.getElementById("raw");
+
+  function escapeHtml(text) {
+    // la ficha se arma con innerHTML y los titulos vienen de una api: escapamos para no inyectar markup ajeno en la pagina
+    return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function paintKeyStatus() {
+    const key = MV.omdb.getKey();
+    keyStatus.textContent = key ? "key guardada (" + key.slice(0, 3) + "...)" : "sin key: la busqueda va a fallar";
+  }
+
+  function showError(err) {
+    mappedCard.innerHTML = '<span class="bad">' + escapeHtml(err.message) + "</span>";
+    rawJson.textContent = "";
+  }
+
+  function paintCard(mapped, raw) {
+    const rows = FIELDS.map(function (field) {
+      const value = Array.isArray(mapped[field]) ? mapped[field].join(", ") : String(mapped[field]);
+      return "<tr><th>" + field + "</th><td>" + escapeHtml(value) + "</td></tr>";
+    });
+    rows.push('<tr><th>imdbLink</th><td><a href="' + escapeHtml(mapped.imdbLink) + '" target="_blank" rel="noopener">' + escapeHtml(mapped.imdbLink) + "</a></td></tr>");
+    mappedCard.innerHTML = "<table>" + rows.join("") + "</table>";
+    rawJson.textContent = JSON.stringify(raw, null, 2);
+  }
+
+  function paintResults(items) {
+    if (!items.length) {
+      resultsList.innerHTML = '<div class="note">sin resultados</div>';
+      return;
+    }
+    resultsList.innerHTML = "";
+    items.forEach(function (item) {
+      const row = document.createElement("div");
+      row.textContent = item.title + "  (" + item.year + ", " + item.type + ")  " + item.imdbID;
+      row.addEventListener("click", function () {
+        mappedCard.textContent = "cargando...";
+        MV.omdb.getTitle(item.imdbID).then(function (result) {
+          paintCard(result.mapped, result.raw);
+        }).catch(showError);
+      });
+      resultsList.appendChild(row);
+    });
+  }
+
+  function runSearch() {
+    resultsList.innerHTML = '<div class="note">buscando...</div>';
+    MV.omdb.search(queryInput.value).then(paintResults).catch(function (err) {
+      resultsList.innerHTML = '<span class="bad">' + escapeHtml(err.message) + "</span>";
+    });
+  }
+
+  document.getElementById("save-key").addEventListener("click", function () {
+    MV.omdb.setKey(keyInput.value);
+    keyInput.value = "";
+    paintKeyStatus();
+  });
+
+  document.getElementById("clear-cache").addEventListener("click", function () {
+    MV.omdb.clearCache();
+    keyStatus.textContent = "cache borrado";
+  });
+
+  document.getElementById("run-search").addEventListener("click", runSearch);
+  queryInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      runSearch();
+    }
+  });
+
+  paintKeyStatus();
+  window.MV_TEST = { FIELDS: FIELDS };
+})();
+</script>
+
+</body>
+</html>
