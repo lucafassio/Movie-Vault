@@ -9,17 +9,17 @@ const ROOT = path.join(__dirname, "..");
 
 // doble de test de localStorage, no un polyfill: alcanza para probar el guard de json corrupto de la Task 5
 // se crea una instancia nueva por cada loadScripts para que no se filtre estado entre tests
-function crearLocalStorageFalso() {
-  const almacen = new Map();
+function createFakeLocalStorage() {
+  const store = new Map();
   return {
-    getItem: function (clave) {
-      return almacen.has(clave) ? almacen.get(clave) : null;
+    getItem: function (key) {
+      return store.has(key) ? store.get(key) : null;
     },
-    setItem: function (clave, valor) {
-      almacen.set(clave, String(valor));
+    setItem: function (key, value) {
+      store.set(key, String(value));
     },
-    removeItem: function (clave) {
-      almacen.delete(clave);
+    removeItem: function (key) {
+      store.delete(key);
     }
   };
 }
@@ -27,7 +27,7 @@ function crearLocalStorageFalso() {
 function loadScripts(relativePaths) {
   // window tiene que ser el propio contexto (como en un browser real window === globalThis)
   // asi "window.MV = ..." tambien deja "MV" como global suelta, que es como esta escrito js/omdb.js
-  const context = { URL: URL, URLSearchParams: URLSearchParams, console: console, localStorage: crearLocalStorageFalso() };
+  const context = { URL: URL, URLSearchParams: URLSearchParams, console: console, localStorage: createFakeLocalStorage() };
   context.window = context;
   vm.createContext(context);
   relativePaths.forEach(function (relativePath) {
