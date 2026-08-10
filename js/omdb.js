@@ -52,10 +52,44 @@ MV.omdb = (function () {
     return "-";
   }
 
+  function parseGenres(genre) {
+    if (isMissing(genre)) {
+      return "-";
+    }
+    return String(genre).split(",").map(function (name) { return name.trim(); }).join(" - ");
+  }
+
+  // omdb no devuelve el personaje, solo el nombre del actor: "Leonardo DiCaprio (Teddy Daniels)" no se puede reconstruir desde aca
+  function parseActors(actors) {
+    if (isMissing(actors)) {
+      return [];
+    }
+    return String(actors).split(",").map(function (name) { return name.trim(); });
+  }
+
+  function parseRating(imdbRating) {
+    if (isMissing(imdbRating)) {
+      return null;
+    }
+    const rating = parseFloat(imdbRating);
+    return isNaN(rating) ? null : rating;
+  }
+
+  function imdbLink(imdbID) {
+    if (isMissing(imdbID)) {
+      return "";
+    }
+    return "https://www.imdb.com/es/title/" + imdbID + "/";
+  }
+
   return {
     isMissing: isMissing,
     parseReleased: parseReleased,
     parseRuntime: parseRuntime,
-    parseSeriesDuration: parseSeriesDuration
+    parseSeriesDuration: parseSeriesDuration,
+    parseGenres: parseGenres,
+    parseActors: parseActors,
+    parseRating: parseRating,
+    imdbLink: imdbLink
   };
 })();

@@ -66,3 +66,37 @@ test("parseSeriesDuration cae a temporadas si la temporada unica no trae episodi
   assert.equal(omdb.parseSeriesDuration("1", 0), "1 temp");
   assert.equal(omdb.parseSeriesDuration("N/A", 0), "-");
 });
+
+test("parseGenres cambia las comas de omdb por el separador de la coleccion", function () {
+  assert.equal(omdb.parseGenres("Drama, Mystery, Thriller"), "Drama - Mystery - Thriller");
+  assert.equal(omdb.parseGenres("Drama"), "Drama");
+});
+
+test("parseGenres devuelve guion cuando no hay generos", function () {
+  assert.equal(omdb.parseGenres("N/A"), "-");
+});
+
+test("parseActors parte la lista de omdb en un array de nombres", function () {
+  assert.deepEqual(omdb.parseActors("Keanu Reeves, Michael Nyqvist, Alfie Allen"), ["Keanu Reeves", "Michael Nyqvist", "Alfie Allen"]);
+});
+
+test("parseActors devuelve lista vacia cuando no hay elenco", function () {
+  assert.deepEqual(omdb.parseActors("N/A"), []);
+});
+
+test("parseRating devuelve numero, no string", function () {
+  assert.equal(omdb.parseRating("8.2"), 8.2);
+  assert.equal(omdb.parseRating("8.0"), 8);
+});
+
+test("parseRating devuelve null cuando la pelicula todavia no tiene puntaje", function () {
+  assert.equal(omdb.parseRating("N/A"), null);
+});
+
+test("imdbLink arma la url en el locale es que usa la coleccion", function () {
+  assert.equal(omdb.imdbLink("tt2911666"), "https://www.imdb.com/es/title/tt2911666/");
+});
+
+test("imdbLink devuelve string vacio sin id", function () {
+  assert.equal(omdb.imdbLink("N/A"), "");
+});
