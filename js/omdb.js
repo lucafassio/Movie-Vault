@@ -170,6 +170,59 @@ MV.omdb = (function () {
     localStorage.removeItem(CACHE_STORAGE);
   }
 
+  // el plan gratuito son 1000 llamadas por dia: cacheamos por clave para que reabrir la pagina o repetir el panel de asserts no queme cupo
+  function request(params, cacheKey) {
+    const cache = readCache();
+    if (cacheKey && cache[cacheKey]) {
+      return Promise.resolve(cache[cacheKey]);
+    }
+    const key = getKey();
+    if (!key) {
+      return Promise.reject(new Error("falta la api key de omdb"));
+    }
+    return fetch(buildUrl(params, key)).then(function (response) {
+      return response.json();
+    }).then(function (data) {
+      // omdb contesta 200 con Response "False" tanto para una key invalida como para un titulo inexistente
+      if (data.Response === "False") {
+        throw new Error(data.Error || "omdb respondio Response False sin detalle");
+      }
+      if (cacheKey) {
+        cache[cacheKey] = data;
+        writeCache(cache);
+      }
+      return data;
+    });
+  }
+
+  function search(query) {
+    const normalized = String(query).trim();
+    if (!normalized) {
+      return Promise.resolve([]);
+    }
+    return request({ s: normalized }, "s:" + normalized.toLowerCase()).then(function (data) {
+      return (data.Search || []).map(mapSearchItem);
+    }).catch(function (err) {
+      // "Movie not found!" y "Too many results." son respuestas validas de omdb, no fallos de red: devolvemos lista vacia
+      if (/not found|too many results/i.test(err.message)) {
+        return [];
+      }
+      throw err;
+    });
+  }
+
+  function getTitle(imdbID) {
+    return request({ i: imdbID, plot: "short" }, "i:" + imdbID).then(function (raw) {
+      if (raw.Type !== "series" || parseInt(raw.totalSeasons, 10) !== 1) {
+        return { mapped: mapTitle(raw, 0), raw: raw };
+      }
+      // una serie de temporada unica se mide en episodios y omdb no manda ese conteo en el detalle: hay que pedir la temporada aparte
+      return request({ i: imdbID, Season: 1 }, "season1:" + imdbID).then(function (season) {
+        return { mapped: mapTitle(raw, (season.Episodes || []).length), raw: raw };
+      });
+    });
+  }
+
   return {
     isMissing: isMissing,
     parseReleased: parseReleased,
@@ -187,6 +240,8 @@ MV.omdb = (function () {
     parseCache: parseCache,
     readCache: readCache,
     writeCache: writeCache,
-    clearCache: clearCache
+    clearCache: clearCache,
+    search: search,
+    getTitle: getTitle
   };
 })();
