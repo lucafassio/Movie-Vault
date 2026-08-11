@@ -94,6 +94,38 @@ test("pickReleaseDate toma el estreno en cines y no el primero que aparece", fun
   assert.equal(tmdb.pickReleaseDate(conPremiere, "2010-02-14"), "18/02/2010");
 });
 
+test("pickReleaseDate toma el estreno digital cuando la pelicula no paso por cines", function () {
+  // caso real de Frankenstein: no tiene ningun type 3, y el primero de la lista es una funcion de festival que no es un estreno
+  const frankenstein = [
+    { iso_3166_1: "US", release_dates: [
+      { certification: "", type: 1, release_date: "2025-08-30T00:00:00.000Z", note: "Telluride Film Festival" },
+      { certification: "", type: 1, release_date: "2025-10-17T00:00:00.000Z", note: "Chicago International Film Festival" },
+      { certification: "R", type: 2, release_date: "2025-10-17T00:00:00.000Z", note: "" },
+      { certification: "R", type: 4, release_date: "2025-11-07T00:00:00.000Z", note: "Netflix" },
+      { certification: "R", type: 5, release_date: "2026-10-27T00:00:00.000Z", note: "" }
+    ] }
+  ];
+  assert.equal(tmdb.pickReleaseDate(frankenstein, "2025-10-17"), "07/11/2025");
+});
+
+test("pickReleaseDate sigue prefiriendo el estreno en cines cuando existe", function () {
+  const conCines = [
+    { iso_3166_1: "US", release_dates: [
+      { certification: "", type: 1, release_date: "2021-10-07T00:00:00.000Z" },
+      { certification: "PG-13", type: 4, release_date: "2021-10-21T00:00:00.000Z", note: "HBO Max" },
+      { certification: "PG-13", type: 3, release_date: "2021-10-22T00:00:00.000Z" }
+    ] }
+  ];
+  assert.equal(tmdb.pickReleaseDate(conCines, "2021-09-15"), "22/10/2021");
+});
+
+test("pickReleaseDate cae al premiere solo cuando no hay ningun otro tipo", function () {
+  const soloPremiere = [
+    { iso_3166_1: "US", release_dates: [{ certification: "", type: 1, release_date: "2025-08-30T00:00:00.000Z" }] }
+  ];
+  assert.equal(tmdb.pickReleaseDate(soloPremiere, "2025-10-17"), "30/08/2025");
+});
+
 test("pickCertification toma la de estados unidos aunque haya una argentina", function () {
   assert.equal(tmdb.pickCertification(RELEASE_DATES), "R");
 });

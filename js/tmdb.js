@@ -14,6 +14,10 @@ MV.tmdb = (function () {
   // la lista queda como mecanismo de fallback por si alguna vez falta un pais, pero hoy alcanza con US solo
   const COUNTRY_PRIORITY = ["US"];
 
+  // orden de preferencia del tipo de estreno: primero el de cines, despues el digital, y el premiere ultimo porque una funcion de festival no es un estreno
+  // sin esto una pelicula sin estreno en cines (Frankenstein, que fue directo a Netflix) tomaba la fecha del festival de Telluride
+  const RELEASE_TYPE_PRIORITY = [3, 4, 2, 6, 5, 1];
+
   function parseRuntime(minutes) {
     const total = parseInt(minutes, 10);
     if (!total || isNaN(total)) {
@@ -70,13 +74,22 @@ MV.tmdb = (function () {
     return (releaseDates || []).find(function (row) { return row.iso_3166_1 === code; });
   }
 
+  function pickEntryByType(entries) {
+    for (let index = 0; index < RELEASE_TYPE_PRIORITY.length; index += 1) {
+      const found = (entries || []).find(function (entry) { return entry.type === RELEASE_TYPE_PRIORITY[index]; });
+      if (found) {
+        return found;
+      }
+    }
+    return (entries || [])[0];
+  }
+
   function pickReleaseDate(releaseDates, fallbackIso) {
     for (let index = 0; index < COUNTRY_PRIORITY.length; index += 1) {
       const row = findCountryRow(releaseDates, COUNTRY_PRIORITY[index]);
-      // el type 3 es el estreno en cines, que es el que la coleccion anota
-      const theatrical = row && (row.release_dates.find(function (entry) { return entry.type === 3; }) || row.release_dates[0]);
-      if (theatrical && theatrical.release_date) {
-        return parseDate(String(theatrical.release_date).slice(0, 10));
+      const chosen = row && pickEntryByType(row.release_dates);
+      if (chosen && chosen.release_date) {
+        return parseDate(String(chosen.release_date).slice(0, 10));
       }
     }
     return parseDate(fallbackIso);
