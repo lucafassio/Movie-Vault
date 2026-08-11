@@ -65,3 +65,53 @@ test("posterUrl devuelve string vacio cuando la pelicula no tiene portada", func
   assert.equal(tmdb.posterUrl(null), "");
   assert.equal(tmdb.posterUrl(""), "");
 });
+
+const RELEASE_DATES = [
+  { iso_3166_1: "US", release_dates: [{ certification: "R", type: 3, release_date: "2010-02-17T00:00:00.000Z" }] },
+  { iso_3166_1: "AR", release_dates: [{ certification: "+16", type: 3, release_date: "2010-03-11T00:00:00.000Z" }] },
+  { iso_3166_1: "ES", release_dates: [{ certification: "12", type: 3, release_date: "2010-02-14T00:00:00.000Z" }] }
+];
+
+test("pickReleaseDate prefiere el estreno argentino", function () {
+  assert.equal(tmdb.pickReleaseDate(RELEASE_DATES, "2010-02-14"), "11/03/2010");
+});
+
+test("pickReleaseDate cae al estreno global cuando no hay fecha argentina", function () {
+  const sinAR = RELEASE_DATES.filter(function (row) { return row.iso_3166_1 !== "AR"; });
+  assert.equal(tmdb.pickReleaseDate(sinAR, "2010-02-14"), "14/02/2010");
+  assert.equal(tmdb.pickReleaseDate([], "2010-02-14"), "14/02/2010");
+  assert.equal(tmdb.pickReleaseDate(undefined, "2010-02-14"), "14/02/2010");
+});
+
+test("pickReleaseDate toma el estreno en cines y no el primero que aparece", function () {
+  const conPremiere = [
+    { iso_3166_1: "AR", release_dates: [
+      { certification: "", type: 1, release_date: "2010-03-01T00:00:00.000Z" },
+      { certification: "+16", type: 3, release_date: "2010-03-11T00:00:00.000Z" }
+    ] }
+  ];
+  assert.equal(tmdb.pickReleaseDate(conPremiere, "2010-02-14"), "11/03/2010");
+});
+
+test("pickCertification prefiere argentina y despues estados unidos", function () {
+  assert.equal(tmdb.pickCertification(RELEASE_DATES), "+16");
+  const sinAR = RELEASE_DATES.filter(function (row) { return row.iso_3166_1 !== "AR"; });
+  assert.equal(tmdb.pickCertification(sinAR), "R");
+});
+
+test("pickCertification devuelve guion cuando ningun pais de la cadena tiene clasificacion", function () {
+  assert.equal(tmdb.pickCertification([{ iso_3166_1: "ES", release_dates: [{ certification: "12", type: 3 }] }]), "-");
+  assert.equal(tmdb.pickCertification([]), "-");
+  assert.equal(tmdb.pickCertification(undefined), "-");
+});
+
+test("pickCertification saltea la entrada sin clasificacion y sigue en el mismo pais", function () {
+  // caso real de Shutter Island: el estreno en Nueva York viene con certification vacia y el de cines con R
+  const conVacia = [
+    { iso_3166_1: "US", release_dates: [
+      { certification: "", type: 1, release_date: "2010-02-17T00:00:00.000Z" },
+      { certification: "R", type: 3, release_date: "2010-02-18T00:00:00.000Z" }
+    ] }
+  ];
+  assert.equal(tmdb.pickCertification(conVacia), "R");
+});

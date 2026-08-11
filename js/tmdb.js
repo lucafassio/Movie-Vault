@@ -10,6 +10,8 @@ MV.tmdb = (function () {
   // en-US y no es-ES a proposito: en castellano los titulos vuelven traducidos ("Dos policias rebeldes II") y la coleccion los tiene en ingles
   const LANGUAGE = "en-US";
   const CAST_LIMIT = 4;
+  // orden de preferencia de pais: primero como se estreno y se clasifico aca, y recien despues estados unidos
+  const COUNTRY_PRIORITY = ["AR", "US"];
 
   function parseRuntime(minutes) {
     const total = parseInt(minutes, 10);
@@ -63,6 +65,32 @@ MV.tmdb = (function () {
     return IMAGE_BASE + POSTER_SIZE + path;
   }
 
+  function findCountryRow(releaseDates, code) {
+    return (releaseDates || []).find(function (row) { return row.iso_3166_1 === code; });
+  }
+
+  function pickReleaseDate(releaseDates, fallbackIso) {
+    const row = findCountryRow(releaseDates, "AR");
+    // el type 3 es el estreno en cines, que es el que la coleccion anota
+    const theatrical = row && (row.release_dates.find(function (entry) { return entry.type === 3; }) || row.release_dates[0]);
+    if (theatrical && theatrical.release_date) {
+      return parseDate(String(theatrical.release_date).slice(0, 10));
+    }
+    return parseDate(fallbackIso);
+  }
+
+  // un pais puede listar el estreno de prensa con la clasificacion vacia antes del de cines: hay que saltear las vacias, no tomar la primera
+  function pickCertification(releaseDates) {
+    for (let index = 0; index < COUNTRY_PRIORITY.length; index += 1) {
+      const row = findCountryRow(releaseDates, COUNTRY_PRIORITY[index]);
+      const rated = row && row.release_dates.find(function (entry) { return entry.certification; });
+      if (rated) {
+        return rated.certification;
+      }
+    }
+    return "-";
+  }
+
   return {
     CAST_LIMIT: CAST_LIMIT,
     BASE_URL: BASE_URL,
@@ -72,6 +100,8 @@ MV.tmdb = (function () {
     parseGenres: parseGenres,
     parseActors: parseActors,
     parseCountry: parseCountry,
-    posterUrl: posterUrl
+    posterUrl: posterUrl,
+    pickReleaseDate: pickReleaseDate,
+    pickCertification: pickCertification
   };
 })();
