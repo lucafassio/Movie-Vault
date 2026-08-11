@@ -114,3 +114,54 @@ test("pickCertification saltea la entrada sin clasificacion y sigue en el mismo 
   ];
   assert.equal(tmdb.pickCertification(conVacia), "R");
 });
+
+const testData = loadScripts(["js/tmdb.js", "js/tmdb-testdata.js"]).tmdbTestData;
+
+test("mapMovie arma el shape completo de una pelicula", function () {
+  assert.deepEqual(tmdb.mapMovie(testData.MOVIE), {
+    tmdbId: 11324,
+    imdbID: "tt1130884",
+    title: "Shutter Island",
+    releaseDate: "18/02/2010",
+    duration: "2h 18min",
+    parental: "R",
+    genres: "Drama - Thriller - Mystery",
+    country: "United States of America",
+    actors: ["Leonardo DiCaprio (Teddy Daniels)", "Mark Ruffalo (Chuck Aule)", "Ben Kingsley (Dr. Cawley)", "Max von Sydow (Dr. Naehring)"],
+    poster: "https://image.tmdb.org/t/p/w500/nrmXQ0zcZUL8jFLrakWc90IR8z9.jpg",
+    imdbLink: "https://www.imdb.com/es/title/tt1130884/"
+  });
+});
+
+test("mapMovie no inventa imdbRating: ese campo lo completa movie-source con omdb", function () {
+  assert.equal("imdbRating" in tmdb.mapMovie(testData.MOVIE), false);
+});
+
+test("mapMovie usa el estreno de cines de estados unidos y no el global ni el de prensa", function () {
+  // el release_date global es 2010-02-14 y el estreno de prensa en Nueva York es el 17: el que vale es el de cines, el 18
+  assert.equal(tmdb.mapMovie(testData.MOVIE).releaseDate, "18/02/2010");
+});
+
+test("mapMovie corta el elenco en CAST_LIMIT aunque tmdb mande mas", function () {
+  assert.equal(testData.MOVIE.credits.cast.length, 5);
+  assert.equal(tmdb.mapMovie(testData.MOVIE).actors.length, tmdb.CAST_LIMIT);
+});
+
+test("mapMovie aguanta una pelicula sin imdb id y no arma un link roto", function () {
+  const sinImdb = Object.assign({}, testData.MOVIE, { imdb_id: null });
+  const mapped = tmdb.mapMovie(sinImdb);
+  assert.equal(mapped.imdbID, "");
+  assert.equal(mapped.imdbLink, "");
+});
+
+test("mapSearchItem deja el año y la portada listos para la lista de resultados", function () {
+  const items = testData.SEARCH.results.map(tmdb.mapSearchItem);
+  assert.deepEqual(items[0], {
+    tmdbId: 11324,
+    title: "Shutter Island",
+    year: "2010",
+    poster: "https://image.tmdb.org/t/p/w500/nrmXQ0zcZUL8jFLrakWc90IR8z9.jpg"
+  });
+  assert.equal(items[1].year, "-");
+  assert.equal(items[1].poster, "");
+});

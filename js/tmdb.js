@@ -94,6 +94,34 @@ MV.tmdb = (function () {
     return "-";
   }
 
+  // el shape es el de js/data.js menos imdbRating, que lo completa js/movie-source.js con omdb
+  function mapMovie(detail) {
+    const credits = detail.credits || {};
+    const releaseDates = (detail.release_dates || {}).results;
+    return {
+      tmdbId: detail.id,
+      imdbID: detail.imdb_id || "",
+      title: detail.title || "-",
+      releaseDate: pickReleaseDate(releaseDates, detail.release_date),
+      duration: parseRuntime(detail.runtime),
+      parental: pickCertification(releaseDates),
+      genres: parseGenres(detail.genres),
+      country: parseCountry(detail.production_countries),
+      actors: parseActors(credits.cast, CAST_LIMIT),
+      poster: posterUrl(detail.poster_path),
+      imdbLink: detail.imdb_id ? "https://www.imdb.com/es/title/" + detail.imdb_id + "/" : ""
+    };
+  }
+
+  function mapSearchItem(result) {
+    return {
+      tmdbId: result.id,
+      title: result.title,
+      year: String(result.release_date || "").slice(0, 4) || "-",
+      poster: posterUrl(result.poster_path)
+    };
+  }
+
   return {
     CAST_LIMIT: CAST_LIMIT,
     BASE_URL: BASE_URL,
@@ -105,6 +133,8 @@ MV.tmdb = (function () {
     parseCountry: parseCountry,
     posterUrl: posterUrl,
     pickReleaseDate: pickReleaseDate,
-    pickCertification: pickCertification
+    pickCertification: pickCertification,
+    mapMovie: mapMovie,
+    mapSearchItem: mapSearchItem
   };
 })();
