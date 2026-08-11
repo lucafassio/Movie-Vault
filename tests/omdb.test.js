@@ -21,6 +21,11 @@ test("parseReleased cae al año suelto cuando omdb no tiene fecha", function () 
   assert.equal(omdb.parseReleased("N/A", "2016-2025"), "2016");
 });
 
+test("parseReleased corta el año aunque omdb mande un guion largo", function () {
+  assert.equal(omdb.parseReleased("N/A", testData.RAW.seriesMultiSeason.Year), "2016");
+  assert.equal(omdb.parseReleased("N/A", testData.RAW.seriesOneSeason.Year), "2026");
+});
+
 test("parseReleased cae al año cuando la fecha viene en un formato que no reconoce", function () {
   assert.equal(omdb.parseReleased("2010", "2010"), "2010");
   assert.equal(omdb.parseReleased("March 2010", "2010"), "2010");
@@ -144,11 +149,11 @@ test("mapTitle arma el shape completo de una pelicula", function () {
     duration: "2h 18min",
     imdbRating: 8.2,
     parental: "R",
-    genres: "Mystery - Thriller",
-    country: "United States",
+    genres: "Drama - Mystery - Thriller",
+    country: "Canada, United States",
     actors: ["Leonardo DiCaprio", "Emily Mortimer", "Mark Ruffalo"],
     imdbLink: "https://www.imdb.com/es/title/tt1130884/",
-    poster: "https://m.media-amazon.com/images/M/shutter.jpg",
+    poster: "https://m.media-amazon.com/images/M/MV5BN2FjNWExYzEtY2YzOC00YjNlLTllMTQtNmIwM2Q1YzBhOWM1XkEyXkFqcGc@._V1_QL75_UX380_CR0,0,380,562_.jpg",
     type: "movie"
   });
 });
@@ -173,9 +178,9 @@ test("mapTitle ignora el Runtime por episodio de una serie", function () {
 test("mapSearchItem deja el poster vacio cuando omdb manda N/A", function () {
   const items = testData.RAW.search.Search.map(omdb.mapSearchItem);
   assert.equal(items[0].title, "Dune: Part One");
-  assert.equal(items[0].poster, "https://m.media-amazon.com/images/M/dune1.jpg");
-  assert.equal(items[1].poster, "");
+  assert.equal(items[0].poster, "https://m.media-amazon.com/images/M/MV5BNWIyNmU5MGYtZDZmNi00ZjAwLWJlYjgtZTc0ZGIxMDE4ZGYwXkEyXkFqcGc@._V1_QL75_UY562_CR1,0,380,562_.jpg");
   assert.equal(items[1].imdbID, "tt15239678");
+  assert.equal(items[2].poster, "");
 });
 
 test("EXPECTED cubre las diez peliculas de la coleccion", function () {
