@@ -122,6 +122,52 @@ MV.tmdb = (function () {
     };
   }
 
+  // la key entra por parametro y no se lee del config adentro para que esta funcion se pueda testear sin browser
+  function buildUrl(path, params, key) {
+    const url = new URL(BASE_URL + path);
+    url.searchParams.set("api_key", key);
+    url.searchParams.set("language", LANGUAGE);
+    Object.keys(params || {}).forEach(function (name) {
+      url.searchParams.set(name, params[name]);
+    });
+    return url.toString();
+  }
+
+  function getKey() {
+    return window.MV.config && MV.config.has("TMDB_API_KEY") ? MV.config.get("TMDB_API_KEY") : "";
+  }
+
+  function request(path, params) {
+    const key = getKey();
+    if (!key) {
+      return Promise.reject(new Error("falta TMDB_API_KEY en js/config.local.js"));
+    }
+    return fetch(buildUrl(path, params, key)).then(function (response) {
+      if (!response.ok) {
+        throw new Error("tmdb respondio " + response.status + " en " + path);
+      }
+      return response.json();
+    });
+  }
+
+  // solo peliculas: /search/movie no devuelve series, asi que el alcance queda acotado por el endpoint y no por un filtro nuestro
+  function search(query) {
+    const normalized = String(query).trim();
+    if (!normalized) {
+      return Promise.resolve([]);
+    }
+    return request("/search/movie", { query: normalized, include_adult: "false" }).then(function (data) {
+      return (data.results || []).map(mapSearchItem);
+    });
+  }
+
+  // credits y release_dates vienen en la misma llamada con append_to_response: son tres datos y un solo request
+  function getMovie(tmdbId) {
+    return request("/movie/" + tmdbId, { append_to_response: "credits,release_dates" }).then(function (detail) {
+      return { mapped: mapMovie(detail), raw: detail };
+    });
+  }
+
   return {
     CAST_LIMIT: CAST_LIMIT,
     BASE_URL: BASE_URL,
@@ -135,6 +181,9 @@ MV.tmdb = (function () {
     pickReleaseDate: pickReleaseDate,
     pickCertification: pickCertification,
     mapMovie: mapMovie,
-    mapSearchItem: mapSearchItem
+    mapSearchItem: mapSearchItem,
+    buildUrl: buildUrl,
+    search: search,
+    getMovie: getMovie
   };
 })();

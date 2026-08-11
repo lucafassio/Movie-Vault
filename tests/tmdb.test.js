@@ -165,3 +165,22 @@ test("mapSearchItem deja el año y la portada listos para la lista de resultados
   assert.equal(items[1].year, "-");
   assert.equal(items[1].poster, "");
 });
+
+test("buildUrl mete la key, el idioma y los parametros en la query", function () {
+  const url = tmdb.buildUrl("/movie/11324", { append_to_response: "credits,release_dates" }, "abc123");
+  assert.match(url, /^https:\/\/api\.themoviedb\.org\/3\/movie\/11324\?/);
+  assert.match(url, /api_key=abc123/);
+  assert.match(url, /language=en-US/);
+  assert.match(url, /append_to_response=credits%2Crelease_dates/);
+});
+
+test("buildUrl escapa el texto de busqueda", function () {
+  const url = tmdb.buildUrl("/search/movie", { query: "shutter island" }, "abc123");
+  assert.match(url, /query=shutter\+island/);
+});
+
+test("buildUrl no rompe cuando no le pasan parametros extra", function () {
+  const url = tmdb.buildUrl("/configuration", undefined, "abc123");
+  assert.match(url, /^https:\/\/api\.themoviedb\.org\/3\/configuration\?/);
+  assert.match(url, /api_key=abc123/);
+});
