@@ -14,9 +14,9 @@ MV.tmdb = (function () {
   // la lista queda como mecanismo de fallback por si alguna vez falta un pais, pero hoy alcanza con US solo
   const COUNTRY_PRIORITY = ["US"];
 
-  // orden de preferencia del tipo de estreno: primero el de cines, despues el digital, y el premiere ultimo porque una funcion de festival no es un estreno
-  // sin esto una pelicula sin estreno en cines (Frankenstein, que fue directo a Netflix) tomaba la fecha del festival de Telluride
-  const RELEASE_TYPE_PRIORITY = [3, 4, 2, 6, 5, 1];
+  // solo estos cuatro tipos cuentan como estreno: 3 cines, 4 digital, 5 fisico, 6 tv
+  // el premiere (1) y el estreno limitado (2) quedan afuera a proposito, una funcion de festival o una sala suelta no es un estreno
+  const RELEASE_TYPE_PRIORITY = [3, 4, 5, 6];
 
   function parseRuntime(minutes) {
     const total = parseInt(minutes, 10);
@@ -81,7 +81,7 @@ MV.tmdb = (function () {
         return found;
       }
     }
-    return (entries || [])[0];
+    return undefined;
   }
 
   function pickReleaseDate(releaseDates, fallbackIso) {

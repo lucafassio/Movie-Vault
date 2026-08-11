@@ -119,11 +119,32 @@ test("pickReleaseDate sigue prefiriendo el estreno en cines cuando existe", func
   assert.equal(tmdb.pickReleaseDate(conCines, "2021-09-15"), "22/10/2021");
 });
 
-test("pickReleaseDate cae al premiere solo cuando no hay ningun otro tipo", function () {
+test("pickReleaseDate ignora el premiere y se va al estreno global", function () {
   const soloPremiere = [
     { iso_3166_1: "US", release_dates: [{ certification: "", type: 1, release_date: "2025-08-30T00:00:00.000Z" }] }
   ];
-  assert.equal(tmdb.pickReleaseDate(soloPremiere, "2025-10-17"), "30/08/2025");
+  assert.equal(tmdb.pickReleaseDate(soloPremiere, "2025-10-17"), "17/10/2025");
+});
+
+test("pickReleaseDate ignora el estreno limitado y se va al estreno global", function () {
+  const soloLimitado = [
+    { iso_3166_1: "US", release_dates: [
+      { certification: "", type: 1, release_date: "2025-08-30T00:00:00.000Z" },
+      { certification: "R", type: 2, release_date: "2025-10-17T00:00:00.000Z" }
+    ] }
+  ];
+  assert.equal(tmdb.pickReleaseDate(soloLimitado, "2025-12-25"), "25/12/2025");
+});
+
+test("pickReleaseDate ordena digital sobre fisico y fisico sobre tv", function () {
+  const sinCines = [
+    { iso_3166_1: "US", release_dates: [
+      { certification: "R", type: 6, release_date: "2026-03-01T00:00:00.000Z" },
+      { certification: "R", type: 5, release_date: "2026-02-01T00:00:00.000Z" },
+      { certification: "R", type: 4, release_date: "2026-01-01T00:00:00.000Z" }
+    ] }
+  ];
+  assert.equal(tmdb.pickReleaseDate(sinCines, "2025-12-01"), "01/01/2026");
 });
 
 test("pickCertification toma la de estados unidos aunque haya una argentina", function () {
