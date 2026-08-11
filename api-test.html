@@ -80,9 +80,23 @@
     return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  // la key puede venir de js/config.local.js (fuera de git) o escribirse a mano en el input: el config solo gana cuando todavia no hay nada guardado, asi lo tipeado a mano no se pisa en cada reload
+  function seedKeyFromConfig() {
+    if (MV.omdb.getKey()) {
+      return;
+    }
+    if (MV.config && MV.config.has("OMDB_API_KEY")) {
+      MV.omdb.setKey(MV.config.get("OMDB_API_KEY"));
+    }
+  }
+
   function paintKeyStatus() {
     const key = MV.omdb.getKey();
-    keyStatus.textContent = key ? "key guardada (" + key.slice(0, 3) + "...)" : "sin key: la busqueda va a fallar";
+    if (!key) {
+      keyStatus.textContent = MV.config ? "sin key: config.local.js no trae OMDB_API_KEY" : "sin key: falta js/config.local.js";
+      return;
+    }
+    keyStatus.textContent = "key guardada (" + key.slice(0, 3) + "...)";
   }
 
   function showError(err) {
@@ -224,6 +238,7 @@
 
   document.getElementById("run-asserts").addEventListener("click", runAsserts);
 
+  seedKeyFromConfig();
   paintKeyStatus();
   window.MV_TEST = { FIELDS: FIELDS, runAsserts: runAsserts, compare: compare, normalize: normalize };
 })();
