@@ -64,11 +64,17 @@
 </section>
 
 <!-- config.local.js esta fuera de git y puede no existir en un clon limpio: el 404 es ruidoso pero no rompe nada, MV.config queda undefined y se avisa en pantalla -->
-<script src="js/config.local.js"></script>
-<script src="js/omdb.js"></script>
-<script src="js/tmdb.js"></script>
-<script src="js/movie-source.js"></script>
-<script src="js/omdb-testdata.js"></script>
+<script>
+  // el server estatico local no manda cabeceras de no-cache, sin esta firma el browser se queda con la version vieja de los scripts y hay que recargar a mano despues de cada edicion
+  window.MV_BUST = Date.now();
+  ["js/config.local.js", "js/omdb.js", "js/tmdb.js", "js/omdb-testdata.js", "js/movie-source.js"].forEach(function (src) {
+    const script = document.createElement("script");
+    script.src = src + "?v=" + window.MV_BUST;
+    // async false mantiene el orden de ejecucion, que importa porque los modulos se registran en el namespace MV
+    script.async = false;
+    document.body.appendChild(script);
+  });
+</script>
 <script>
 (function () {
   const FIELDS = ["title", "releaseDate", "duration", "imdbRating", "parental", "genres", "country", "actors"];
