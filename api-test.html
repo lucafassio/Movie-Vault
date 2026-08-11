@@ -20,6 +20,9 @@
   td, th { border: 1px solid #2a2e35; padding: 4px 8px; text-align: left; vertical-align: top; }
   th { color: #8a8f98; font-weight: normal; }
   pre { background: #0f1114; border: 1px solid #2a2e35; padding: 10px; overflow: auto; max-height: 320px; white-space: pre-wrap; word-break: break-word; }
+  .ficha { display: flex; gap: 14px; align-items: flex-start; }
+  .ficha img { width: 140px; border: 1px solid #2a2e35; flex: 0 0 auto; }
+  .ficha .datos { flex: 1; min-width: 0; }
   .ok { color: #6bd27a; }
   .warn { color: #e0b341; }
   .bad { color: #e06c6c; }
@@ -63,6 +66,8 @@
 <!-- config.local.js esta fuera de git y puede no existir en un clon limpio: el 404 es ruidoso pero no rompe nada, MV.config queda undefined y se avisa en pantalla -->
 <script src="js/config.local.js"></script>
 <script src="js/omdb.js"></script>
+<script src="js/tmdb.js"></script>
+<script src="js/movie-source.js"></script>
 <script src="js/omdb-testdata.js"></script>
 <script>
 (function () {
@@ -91,12 +96,17 @@
   }
 
   function paintKeyStatus() {
-    const key = MV.omdb.getKey();
-    if (!key) {
-      keyStatus.textContent = MV.config ? "sin key: config.local.js no trae OMDB_API_KEY" : "sin key: falta js/config.local.js";
+    if (!MV.config) {
+      keyStatus.textContent = "falta js/config.local.js: no hay ninguna key";
       return;
     }
-    keyStatus.textContent = "key guardada (" + key.slice(0, 3) + "...)";
+    const faltan = MV.config.missing();
+    if (faltan.length) {
+      keyStatus.textContent = "faltan en config.local.js: " + faltan.join(", ");
+      return;
+    }
+    const omdbKey = MV.omdb.getKey();
+    keyStatus.textContent = "tmdb lista, omdb " + (omdbKey ? "lista (" + omdbKey.slice(0, 3) + "...)" : "sin key, el rating va a quedar vacio");
   }
 
   function showError(err) {
@@ -112,7 +122,8 @@
       return "<tr><th>" + field + "</th><td>" + escapeHtml(value) + "</td></tr>";
     });
     rows.push('<tr><th>imdbLink</th><td><a href="' + escapeHtml(mapped.imdbLink) + '" target="_blank" rel="noopener">' + escapeHtml(mapped.imdbLink) + "</a></td></tr>");
-    mappedCard.innerHTML = "<table>" + rows.join("") + "</table>";
+    const poster = mapped.poster ? '<img src="' + escapeHtml(mapped.poster) + '" alt="portada">' : "";
+    mappedCard.innerHTML = '<div class="ficha">' + poster + '<div class="datos"><table>' + rows.join("") + "</table></div></div>";
     rawJson.textContent = JSON.stringify(raw, null, 2);
   }
 
@@ -124,11 +135,15 @@
     resultsList.innerHTML = "";
     items.forEach(function (item) {
       const row = document.createElement("div");
-      row.textContent = item.title + "  (" + item.year + ", " + item.type + ")  " + item.imdbID;
+      row.textContent = item.title + "  (" + item.year + ")";
       row.addEventListener("click", function () {
         mappedCard.textContent = "cargando...";
-        MV.omdb.getTitle(item.imdbID).then(function (result) {
+        MV.movieSource.getMovie(item.tmdbId).then(function (result) {
+          // se pinta con lo de tmdb sin esperar a omdb: si omdb tarda o esta caido la ficha ya esta en pantalla
           paintCard(result.mapped, result.raw);
+          return result.rating.then(function (rating) {
+            paintCard(Object.assign({}, result.mapped, { imdbRating: rating }), result.raw);
+          });
         }).catch(showError);
       });
       resultsList.appendChild(row);
@@ -137,7 +152,7 @@
 
   function runSearch() {
     resultsList.innerHTML = '<div class="note">buscando...</div>';
-    MV.omdb.search(queryInput.value).then(paintResults).catch(function (err) {
+    MV.movieSource.search(queryInput.value).then(paintResults).catch(function (err) {
       resultsList.innerHTML = '<span class="bad">' + escapeHtml(err.message) + "</span>";
     });
   }
