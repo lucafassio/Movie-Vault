@@ -67,11 +67,23 @@
 <script>
   // el server estatico local no manda cabeceras de no-cache, sin esta firma el browser se queda con la version vieja de los scripts y hay que recargar a mano despues de cada edicion
   window.MV_BUST = Date.now();
-  ["js/config.local.js", "js/omdb.js", "js/tmdb.js", "js/omdb-testdata.js", "js/movie-source.js"].forEach(function (src) {
+  const MV_SOURCES = ["js/config.local.js", "js/omdb.js", "js/tmdb.js", "js/omdb-testdata.js", "js/movie-source.js"];
+  let mvPending = MV_SOURCES.length;
+  // el script dinamico no bloquea el parser como uno estatico: el script de abajo no puede leer MV hasta que estos cinco terminen de cargar
+  function mvScriptSettled() {
+    mvPending -= 1;
+    if (mvPending === 0 && window.MV_ON_SCRIPTS_READY) {
+      window.MV_ON_SCRIPTS_READY();
+    }
+  }
+  MV_SOURCES.forEach(function (src) {
     const script = document.createElement("script");
     script.src = src + "?v=" + window.MV_BUST;
     // async false mantiene el orden de ejecucion, que importa porque los modulos se registran en el namespace MV
     script.async = false;
+    // onerror cuenta igual que onload: config.local.js puede 404 y no tiene que trabar el resto
+    script.onload = mvScriptSettled;
+    script.onerror = mvScriptSettled;
     document.body.appendChild(script);
   });
 </script>
@@ -270,9 +282,13 @@
 
   document.getElementById("run-asserts").addEventListener("click", runAsserts);
 
-  seedKeyFromConfig();
-  paintKeyStatus();
   window.MV_TEST = { FIELDS: FIELDS, runAsserts: runAsserts, compare: compare, normalize: normalize };
+
+  // recien aca MV existe: el loader de scripts de arriba llama a esto cuando terminaron de cargar los cinco
+  window.MV_ON_SCRIPTS_READY = function () {
+    seedKeyFromConfig();
+    paintKeyStatus();
+  };
 })();
 </script>
 
