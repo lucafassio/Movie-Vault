@@ -223,6 +223,20 @@ MV.omdb = (function () {
     });
   }
 
+  // unico aporte de omdb en el pipeline nuevo: tmdb no tiene el puntaje de imdb, su vote_average es otro numero (Shutter Island: 8.197 contra 8.2)
+  // reusa el mismo cacheKey "i:<imdbID>" que getTitle, asi un titulo ya visto no gasta una segunda llamada del cupo diario
+  function getRating(imdbID) {
+    if (isMissing(imdbID)) {
+      return Promise.resolve(null);
+    }
+    return request({ i: imdbID, plot: "short" }, "i:" + imdbID).then(function (raw) {
+      return parseRating(raw.imdbRating);
+    }).catch(function () {
+      // el puntaje es un extra: si omdb no contesta o no hay key, la ficha igual se muestra con el rating vacio
+      return null;
+    });
+  }
+
   return {
     isMissing: isMissing,
     parseReleased: parseReleased,
@@ -242,6 +256,7 @@ MV.omdb = (function () {
     writeCache: writeCache,
     clearCache: clearCache,
     search: search,
-    getTitle: getTitle
+    getTitle: getTitle,
+    getRating: getRating
   };
 })();
