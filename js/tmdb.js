@@ -10,8 +10,9 @@ MV.tmdb = (function () {
   // en-US y no es-ES a proposito: en castellano los titulos vuelven traducidos ("Dos policias rebeldes II") y la coleccion los tiene en ingles
   const LANGUAGE = "en-US";
   const CAST_LIMIT = 4;
-  // orden de preferencia de pais: primero como se estreno y se clasifico aca, y recien despues estados unidos
-  const COUNTRY_PRIORITY = ["AR", "US"];
+  // todo en US por default: lo que importa es que la coleccion entera sea uniforme, no que cada ficha use el dato mas local
+  // la lista queda como mecanismo de fallback por si alguna vez falta un pais, pero hoy alcanza con US solo
+  const COUNTRY_PRIORITY = ["US"];
 
   function parseRuntime(minutes) {
     const total = parseInt(minutes, 10);
@@ -70,11 +71,13 @@ MV.tmdb = (function () {
   }
 
   function pickReleaseDate(releaseDates, fallbackIso) {
-    const row = findCountryRow(releaseDates, "AR");
-    // el type 3 es el estreno en cines, que es el que la coleccion anota
-    const theatrical = row && (row.release_dates.find(function (entry) { return entry.type === 3; }) || row.release_dates[0]);
-    if (theatrical && theatrical.release_date) {
-      return parseDate(String(theatrical.release_date).slice(0, 10));
+    for (let index = 0; index < COUNTRY_PRIORITY.length; index += 1) {
+      const row = findCountryRow(releaseDates, COUNTRY_PRIORITY[index]);
+      // el type 3 es el estreno en cines, que es el que la coleccion anota
+      const theatrical = row && (row.release_dates.find(function (entry) { return entry.type === 3; }) || row.release_dates[0]);
+      if (theatrical && theatrical.release_date) {
+        return parseDate(String(theatrical.release_date).slice(0, 10));
+      }
     }
     return parseDate(fallbackIso);
   }
