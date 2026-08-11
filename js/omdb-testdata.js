@@ -120,20 +120,28 @@ MV.omdbTestData = (function () {
   };
 
   const EXPECTED = [
-    { imdbID: "tt1130884", title: "Shutter Island", releaseDate: "11/03/2010", duration: "2h 18min", imdbRating: 8.2, parental: "B15", genres: "Drama - Misterio - Suspenso", country: "Canada", actors: ["Leonardo DiCaprio", "Mark Ruffalo", "Ben Kingsley", "Max von Sydow"] },
-    { imdbID: "tt15239678", title: "Dune: Part Two", releaseDate: "01/03/2024", duration: "2h 46min", imdbRating: 8.4, parental: "PG-13", genres: "Action - Adventure - Drama", country: "United States", actors: ["Timothee Chalamet", "Zendaya", "Rebecca Ferguson"] },
-    { imdbID: "tt1160419", title: "Dune: Part One", releaseDate: "22/10/2021", duration: "2h 35min", imdbRating: 8.0, parental: "PG-13", genres: "Action - Adventure - Drama", country: "United States", actors: ["Timothee Chalamet", "Rebecca Ferguson", "Zendaya"] },
-    { imdbID: "tt21066182", title: "Wonder Man", releaseDate: "27/01/2026", duration: "8 eps", imdbRating: 7.6, parental: "TV-14", genres: "Action - Adventure - Comedy", country: "United States", actors: ["Yahya Abdul-Mateen II", "Ben Kingsley", "X Mayo"] },
-    { imdbID: "tt2911666", title: "John Wick", releaseDate: "24/10/2014", duration: "1h 41min", imdbRating: 7.5, parental: "R", genres: "Action - Crime - Thriller", country: "United States", actors: ["Keanu Reeves", "Michael Nyqvist", "Alfie Allen"] },
-    { imdbID: "tt4574334", title: "Stranger Things", releaseDate: "15/07/2016", duration: "5 temp", imdbRating: 8.6, parental: "TV-MA", genres: "Drama - Fantasy - Horror", country: "United States", actors: ["Millie Bobby Brown", "Finn Wolfhard", "Winona Ryder"] },
-    { imdbID: "tt8772296", title: "Euphoria", releaseDate: "16/06/2019", duration: "3 temp", imdbRating: 8.2, parental: "TV-MA", genres: "Drama", country: "United States", actors: ["Zendaya", "Hunter Schafer", "Jacob Elordi"] },
-    { imdbID: "tt0172156", title: "Bad Boys II", releaseDate: "18/07/2003", duration: "2h 27min", imdbRating: 6.6, parental: "R", genres: "Action - Comedy - Crime", country: "United States", actors: ["Martin Lawrence", "Will Smith", "Jordi Molla"] },
-    { imdbID: "tt1312221", title: "Frankenstein", releaseDate: "07/11/2025", duration: "2h 29min", imdbRating: 7.5, parental: "R", genres: "Drama - Fantasy - Horror", country: "Mexico", actors: ["Mia Goth", "Burn Gorman", "Charles Dance"] },
-    { imdbID: "tt0114369", title: "Se7en", releaseDate: "22/9/1995", duration: "2h 07min", imdbRating: 8.6, parental: "R", genres: "Crime - Drama - Mystery", country: "United States", actors: ["Morgan Freeman", "Brad Pitt", "Kevin Spacey"] }
+    { imdbID: "tt1130884", type: "movie", title: "Shutter Island", releaseDate: "11/03/2010", duration: "2h 18min", imdbRating: 8.2, parental: "B15", genres: "Drama - Misterio - Suspenso", country: "Canada", actors: ["Leonardo DiCaprio", "Mark Ruffalo", "Ben Kingsley", "Max von Sydow"] },
+    { imdbID: "tt15239678", type: "movie", title: "Dune: Part Two", releaseDate: "01/03/2024", duration: "2h 46min", imdbRating: 8.4, parental: "PG-13", genres: "Action - Adventure - Drama", country: "United States", actors: ["Timothee Chalamet", "Zendaya", "Rebecca Ferguson"] },
+    { imdbID: "tt1160419", type: "movie", title: "Dune: Part One", releaseDate: "22/10/2021", duration: "2h 35min", imdbRating: 8.0, parental: "PG-13", genres: "Action - Adventure - Drama", country: "United States", actors: ["Timothee Chalamet", "Rebecca Ferguson", "Zendaya"] },
+    { imdbID: "tt21066182", type: "series", title: "Wonder Man", releaseDate: "27/01/2026", duration: "8 eps", imdbRating: 7.6, parental: "TV-14", genres: "Action - Adventure - Comedy", country: "United States", actors: ["Yahya Abdul-Mateen II", "Ben Kingsley", "X Mayo"] },
+    { imdbID: "tt2911666", type: "movie", title: "John Wick", releaseDate: "24/10/2014", duration: "1h 41min", imdbRating: 7.5, parental: "R", genres: "Action - Crime - Thriller", country: "United States", actors: ["Keanu Reeves", "Michael Nyqvist", "Alfie Allen"] },
+    { imdbID: "tt4574334", type: "series", title: "Stranger Things", releaseDate: "15/07/2016", duration: "5 temp", imdbRating: 8.6, parental: "TV-MA", genres: "Drama - Fantasy - Horror", country: "United States", actors: ["Millie Bobby Brown", "Finn Wolfhard", "Winona Ryder"] },
+    { imdbID: "tt8772296", type: "series", title: "Euphoria", releaseDate: "16/06/2019", duration: "3 temp", imdbRating: 8.2, parental: "TV-MA", genres: "Drama", country: "United States", actors: ["Zendaya", "Hunter Schafer", "Jacob Elordi"] },
+    { imdbID: "tt0172156", type: "movie", title: "Bad Boys II", releaseDate: "18/07/2003", duration: "2h 27min", imdbRating: 6.6, parental: "R", genres: "Action - Comedy - Crime", country: "United States", actors: ["Martin Lawrence", "Will Smith", "Jordi Molla"] },
+    { imdbID: "tt1312221", type: "movie", title: "Frankenstein", releaseDate: "07/11/2025", duration: "2h 29min", imdbRating: 7.5, parental: "R", genres: "Drama - Fantasy - Horror", country: "Mexico", actors: ["Mia Goth", "Burn Gorman", "Charles Dance"] },
+    { imdbID: "tt0114369", type: "movie", title: "Se7en", releaseDate: "22/9/1995", duration: "2h 07min", imdbRating: 8.6, parental: "R", genres: "Crime - Drama - Mystery", country: "United States", actors: ["Morgan Freeman", "Brad Pitt", "Kevin Spacey"] }
   ];
+
+  // el pipeline nuevo es solo peliculas: las series quedan en EXPECTED pero fuera de las comparaciones por ahora
+  function movies() {
+    return EXPECTED.filter(function (movie) {
+      return movie.type === "movie";
+    });
+  }
 
   return {
     RAW: RAW,
-    EXPECTED: EXPECTED
+    EXPECTED: EXPECTED,
+    movies: movies
   };
 })();

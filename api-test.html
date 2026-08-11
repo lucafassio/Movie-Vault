@@ -100,9 +100,9 @@
       keyStatus.textContent = "falta js/config.local.js: no hay ninguna key";
       return;
     }
-    const faltan = MV.config.missing();
-    if (faltan.length) {
-      keyStatus.textContent = "faltan en config.local.js: " + faltan.join(", ");
+    // solo se chequea lo que el pipeline usa de verdad: TMDB_READ_ACCESS_TOKEN esta en el config pero este cliente va por api_key
+    if (!MV.config.has("TMDB_API_KEY")) {
+      keyStatus.textContent = "falta TMDB_API_KEY en config.local.js: la busqueda no va a andar";
       return;
     }
     const omdbKey = MV.omdb.getKey();
@@ -203,7 +203,7 @@
   let assertsRunning = false;
 
   function runAsserts() {
-    const expected = MV.omdbTestData.EXPECTED;
+    const expected = MV.omdbTestData.movies();
     const summaryBox = document.getElementById("summary");
     const container = document.getElementById("tests-table");
     if (assertsRunning) {
@@ -212,20 +212,30 @@
     assertsRunning = true;
     const assertsButton = document.getElementById("run-asserts");
     assertsButton.disabled = true;
-    summaryBox.textContent = "pidiendo " + expected.length + " titulos a omdb...";
+    summaryBox.textContent = "pidiendo " + expected.length + " peliculas a tmdb...";
     container.innerHTML = "";
 
     const rows = [];
     const counts = { ok: 0, different: 0, empty: 0, error: 0 };
 
-    // en serie y no en paralelo para no disparar diez requests juntas contra el cupo diario
+    // en serie y no en paralelo para no disparar requests juntas contra el cupo diario de omdb
     return expected.reduce(function (chain, movie) {
       return chain.then(function () {
-        return MV.omdb.getTitle(movie.imdbID).then(function (result) {
+        return MV.tmdb.findByImdbId(movie.imdbID).then(function (tmdbId) {
+          if (!tmdbId) {
+            throw new Error("tmdb no encontro " + movie.imdbID);
+          }
+          return MV.movieSource.getMovie(tmdbId);
+        }).then(function (result) {
+          // se espera el rating aca porque la celda de imdbRating tiene que compararse contra un valor ya resuelto
+          return result.rating.then(function (rating) {
+            return Object.assign({}, result.mapped, { imdbRating: rating });
+          });
+        }).then(function (mapped) {
           const cells = FIELDS.map(function (field) {
-            const state = compare(movie[field], result.mapped[field]);
+            const state = compare(movie[field], mapped[field]);
             counts[state] = counts[state] + 1;
-            const tooltip = normalize(movie[field]) + "  ->  " + normalize(result.mapped[field]);
+            const tooltip = normalize(movie[field]) + "  ->  " + normalize(mapped[field]);
             return '<td class="' + STATE_CLASS[state] + '" title="' + escapeHtml(tooltip) + '">' + STATE_LABEL[state] + "</td>";
           });
           rows.push("<tr><th>" + escapeHtml(movie.title) + "</th>" + cells.join("") + "</tr>");
@@ -240,7 +250,8 @@
       summaryBox.innerHTML = 'asserts: <span class="ok">' + counts.ok + " ok</span> / " +
         '<span class="warn">' + counts.different + " distintos</span> / " +
         '<span class="bad">' + counts.empty + " vacios</span> / " +
-        counts.error + " errores  (pasar el mouse por una celda muestra esperado -> obtenido)";
+        counts.error + " errores sobre " + expected.length + " peliculas, las 3 series quedan fuera por ahora" +
+        "  (pasar el mouse por una celda muestra esperado -> obtenido)";
       assertsRunning = false;
       assertsButton.disabled = false;
     }).catch(function (err) {

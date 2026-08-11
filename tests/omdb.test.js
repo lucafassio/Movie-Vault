@@ -190,6 +190,14 @@ test("EXPECTED cubre las diez peliculas de la coleccion", function () {
   });
 });
 
+test("movies deja afuera las tres series de la coleccion", function () {
+  assert.equal(testData.EXPECTED.length, 10);
+  assert.equal(testData.movies().length, 7);
+  testData.movies().forEach(function (movie) {
+    assert.equal(movie.type, "movie");
+  });
+});
+
 test("buildUrl mete la key y los parametros en la query", function () {
   const url = omdb.buildUrl({ i: "tt1130884", plot: "short" }, "abc123");
   assert.match(url, /^https:\/\/www\.omdbapi\.com\/\?/);

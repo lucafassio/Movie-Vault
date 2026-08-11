@@ -168,6 +168,14 @@ MV.tmdb = (function () {
     });
   }
 
+  // el panel de asserts arranca de los imdb id que ya tiene la coleccion: este es el puente de imdb a tmdb
+  function findByImdbId(imdbID) {
+    return request("/find/" + imdbID, { external_source: "imdb_id" }).then(function (data) {
+      const movie = (data.movie_results || [])[0];
+      return movie ? movie.id : null;
+    });
+  }
+
   return {
     CAST_LIMIT: CAST_LIMIT,
     BASE_URL: BASE_URL,
@@ -184,6 +192,7 @@ MV.tmdb = (function () {
     mapSearchItem: mapSearchItem,
     buildUrl: buildUrl,
     search: search,
-    getMovie: getMovie
+    getMovie: getMovie,
+    findByImdbId: findByImdbId
   };
 })();
