@@ -1,0 +1,67 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { loadScripts } = require("./load-omdb");
+
+const tmdb = loadScripts(["js/tmdb.js"]).tmdb;
+
+test("parseRuntime pasa los minutos de tmdb al formato de la coleccion", function () {
+  assert.equal(tmdb.parseRuntime(138), "2h 18min");
+  assert.equal(tmdb.parseRuntime(101), "1h 41min");
+  assert.equal(tmdb.parseRuntime(127), "2h 07min");
+  assert.equal(tmdb.parseRuntime(45), "45min");
+});
+
+test("parseRuntime devuelve guion cuando tmdb no sabe la duracion", function () {
+  assert.equal(tmdb.parseRuntime(0), "-");
+  assert.equal(tmdb.parseRuntime(null), "-");
+  assert.equal(tmdb.parseRuntime(undefined), "-");
+});
+
+test("parseDate da vuelta la fecha iso de tmdb", function () {
+  assert.equal(tmdb.parseDate("2010-02-14"), "14/02/2010");
+  assert.equal(tmdb.parseDate("2024-02-29"), "29/02/2024");
+});
+
+test("parseDate devuelve guion cuando la fecha viene vacia o mal formada", function () {
+  assert.equal(tmdb.parseDate(""), "-");
+  assert.equal(tmdb.parseDate(null), "-");
+  assert.equal(tmdb.parseDate("2010"), "-");
+});
+
+test("parseGenres une los nombres con el separador de la coleccion", function () {
+  assert.equal(tmdb.parseGenres([{ id: 18, name: "Drama" }, { id: 80, name: "Crime" }]), "Drama - Crime");
+  assert.equal(tmdb.parseGenres([]), "-");
+  assert.equal(tmdb.parseGenres(undefined), "-");
+});
+
+test("parseActors escribe el personaje entre parentesis como la coleccion", function () {
+  const cast = [
+    { name: "Leonardo DiCaprio", character: "Teddy Daniels" },
+    { name: "Mark Ruffalo", character: "Chuck Aule" }
+  ];
+  assert.deepEqual(tmdb.parseActors(cast, 4), ["Leonardo DiCaprio (Teddy Daniels)", "Mark Ruffalo (Chuck Aule)"]);
+});
+
+test("parseActors corta en el limite pedido", function () {
+  const cast = [{ name: "A", character: "a" }, { name: "B", character: "b" }, { name: "C", character: "c" }];
+  assert.deepEqual(tmdb.parseActors(cast, 2), ["A (a)", "B (b)"]);
+});
+
+test("parseActors omite el parentesis cuando tmdb no sabe el personaje", function () {
+  assert.deepEqual(tmdb.parseActors([{ name: "Zendaya", character: "" }], 4), ["Zendaya"]);
+  assert.deepEqual(tmdb.parseActors(undefined, 4), []);
+});
+
+test("parseCountry se queda con el primer pais de produccion", function () {
+  assert.equal(tmdb.parseCountry([{ name: "Mexico" }, { name: "United States of America" }]), "Mexico");
+  assert.equal(tmdb.parseCountry([]), "-");
+});
+
+test("posterUrl arma la url absoluta de la imagen", function () {
+  assert.equal(tmdb.posterUrl("/abc.jpg"), "https://image.tmdb.org/t/p/w500/abc.jpg");
+});
+
+test("posterUrl devuelve string vacio cuando la pelicula no tiene portada", function () {
+  assert.equal(tmdb.posterUrl(null), "");
+  assert.equal(tmdb.posterUrl(""), "");
+});
