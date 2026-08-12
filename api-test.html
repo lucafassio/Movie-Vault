@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>movievault — prueba de api omdb</title>
+<title>movievault — prueba de api tmdb</title>
 <style>
   :root { color-scheme: dark; }
   body { margin: 0; padding: 24px; background: #14161a; color: #e6e6e6; font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; }
@@ -31,12 +31,12 @@
 </head>
 <body>
 
-<h1>movievault — prueba de api omdb</h1>
-<p class="sub">pagina descartable: solo comprueba que se puede buscar en omdb y extraer los campos que usa la coleccion</p>
+<h1>movievault — prueba de api tmdb</h1>
+<p class="sub">pagina descartable: solo comprueba que se puede buscar en tmdb y extraer los campos que usa la coleccion, con omdb aportando unicamente el puntaje de imdb</p>
 
 <section>
   <h2>api key</h2>
-  <input id="key" type="text" size="30" placeholder="pegar la key de omdb">
+  <input id="key" type="text" size="30" placeholder="pegar la key de omdb (solo el rating)">
   <button id="save-key">guardar</button>
   <button id="clear-cache">limpiar cache</button>
   <span id="key-status" class="note"></span>
@@ -52,7 +52,7 @@
 <section>
   <h2>ficha mapeada</h2>
   <div id="mapped" class="note">elegi un resultado de la lista</div>
-  <h2 style="margin-top:14px">json crudo de omdb</h2>
+  <h2 style="margin-top:14px">json crudo de tmdb</h2>
   <pre id="raw"></pre>
 </section>
 
@@ -204,7 +204,7 @@
     return String(value);
   }
 
-  // tres estados a proposito: vacio es que omdb no tiene el dato, distinto es que lo tiene pero no coincide con la coleccion
+  // tres estados a proposito: vacio es que la api no tiene el dato, distinto es que lo tiene pero no coincide con la coleccion
   // la igualdad se chequea primero porque un "-" que coincide de los dos lados es un acierto, no un hueco
   function compare(expectedValue, actualValue) {
     const actualText = normalize(actualValue);
