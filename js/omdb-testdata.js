@@ -1,5 +1,5 @@
 // datos para los tests del cliente de omdb: RAW son respuestas crudas de la api, EXPECTED es la coleccion actual como verdad de comparacion
-// EXPECTED esta transcripto a mano de js/data.js porque BASE_MOVIES es privado dentro de su IIFE y no lo exporta
+// EXPECTED esta transcripto a mano de la coleccion base (ver git history: js/data.js, borrado en la limpieza de app-v1)
 // RAW ya no es shape copiado a mano: son capturas reales, tomadas el 2026-08-11 contra la api de omdb con una key valida
 // imdbRating e imdbVotes de estas capturas cambian con el tiempo (la comunidad sigue votando) -- ningun test debe compararlos contra la api en vivo, solo contra este snapshot fijo
 

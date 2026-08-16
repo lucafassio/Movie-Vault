@@ -14,10 +14,6 @@ y abrir `http://localhost:8123`.
 
 ## Estado actual
 
-Etapa visual: el buscador de la computadora opera sobre un dataset mock embebido (`js/data.js`, convertido de los CSVs de `data/`). La API real de IMDB se enchufa despues reemplazando `searchMovies` sin cambiar la firma. Las peliculas agregadas persisten en `localStorage`.
+`index.html` es la app: escena horneada en Blender (habitacion, viaje room->estanteria) con un paternoster de 13 estantes en CSS/DOM. La ficha de cada pelicula sale de TMDB (`js/tmdb.js`) con el puntaje de IMDb via OMDb (`js/omdb.js`), compuestos en `js/movie-source.js`. Buscador, lomos y caja abierta todavia no estan montados en `index.html` (`reference/open-case.js` + `reference/open-case.css` quedan como punto de partida de una version anterior descartada).
 
-## Interaccion
-
-- Click en la computadora: buscar una pelicula, "comprarla" y completar fecha, puntaje y review. La caja vuela a la estanteria.
-- Click en la estanteria y despues en un lomo: la caja sale del estante y se abre mostrando disco e info completa.
-- `esc` o el boton volver retroceden un nivel.
+Detalle completo en `.claude/CLAUDE.md` y `.claude/rules/`.

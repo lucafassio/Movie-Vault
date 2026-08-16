@@ -107,7 +107,7 @@ MV.tmdb = (function () {
     return "-";
   }
 
-  // el shape es el de js/data.js menos imdbRating, que lo completa js/movie-source.js con omdb
+  // el shape es el de la coleccion (titulo, fecha, duracion, genero, pais, elenco, portada, link) menos imdbRating, que lo completa js/movie-source.js con omdb
   function mapMovie(detail) {
     const credits = detail.credits || {};
     const releaseDates = (detail.release_dates || {}).results;

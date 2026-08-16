@@ -1,4 +1,4 @@
-// cliente de la api de omdb (omdbapi.com): busca titulos y mapea la respuesta cruda al shape que ya usa js/data.js
+// cliente de la api de omdb (omdbapi.com): busca titulos y mapea la respuesta cruda al shape de la coleccion
 // omdb es la unica fuente del buscador porque es la unica de una sola key que trae imdbRating y Rated juntos
 
 window.MV = window.MV || {};
