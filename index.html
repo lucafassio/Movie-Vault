@@ -422,9 +422,17 @@
   $("hotspot").addEventListener("click", irAFront);
   $("volver").addEventListener("click", irARoom);
 
+  // ---- fase pura (ver tests/input-gate.test.js): inputGate ----
+  // unico gate de interactividad: solo la etapa "front" recibe wheel/pointer/keydown.
+  // durante "room" y "viaje" ninguno de los 4 listeners de abajo debe actuar.
+  function inputGate(etapa) {
+    return etapa === "front";
+  }
+  // ---- fin inputGate ----
+
   // ---- entrada ----
   window.addEventListener("wheel", function (e) {
-    if (etapa !== "front") return;
+    if (!inputGate(etapa)) return;
     e.preventDefault();
     if (sobreArmario(e.clientX, e.clientY)) {
       modo = "cadena";
@@ -437,7 +445,7 @@
 
   var arrastrando = false, ultimoY = 0, arrastreEnArmario = false;
   window.addEventListener("pointerdown", function (e) {
-    if (etapa !== "front") return;
+    if (!inputGate(etapa)) return;
     if (e.target.closest("#volver, #dbg")) return;
     arrastrando = true; ultimoY = e.clientY;
     arrastreEnArmario = sobreArmario(e.clientX, e.clientY);
@@ -445,7 +453,7 @@
   });
   window.addEventListener("pointermove", function (e) {
     if (!arrastrando) {
-      if (etapa === "front") {
+      if (inputGate(etapa)) {
         var m = sobreArmario(e.clientX, e.clientY) ? "cadena" : "camara";
         if (m !== modo) { modo = m; sucio = true; }
       }
@@ -462,7 +470,7 @@
 
   // unica tecla: Esc sale de la escena de la estanteria
   window.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape" || etapa !== "front") return;
+    if (e.key !== "Escape" || !inputGate(etapa)) return;
     e.preventDefault();
     irARoom();
   });

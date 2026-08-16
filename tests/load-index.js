@@ -5,19 +5,33 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
-const MARCA_INICIO = "// ---- fase pura (ver tests/paternoster.test.js): plateState ----";
-const MARCA_FIN = "// ---- fin plateState ----";
 
-function loadPlateState() {
+function loadPureBlock(marcaInicio, marcaFin, nombre) {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-  const inicio = html.indexOf(MARCA_INICIO);
-  const fin = html.indexOf(MARCA_FIN);
+  const inicio = html.indexOf(marcaInicio);
+  const fin = html.indexOf(marcaFin);
   if (inicio === -1 || fin === -1) {
-    throw new Error("no se encontraron los centinelas de plateState en index.html");
+    throw new Error("no se encontraron los centinelas de " + nombre + " en index.html");
   }
   const bloque = html.slice(inicio, fin);
-  const factory = new Function(bloque + "\nreturn plateState;");
+  const factory = new Function(bloque + "\nreturn " + nombre + ";");
   return factory();
 }
 
-module.exports = { loadPlateState: loadPlateState };
+function loadPlateState() {
+  return loadPureBlock(
+    "// ---- fase pura (ver tests/paternoster.test.js): plateState ----",
+    "// ---- fin plateState ----",
+    "plateState"
+  );
+}
+
+function loadInputGate() {
+  return loadPureBlock(
+    "// ---- fase pura (ver tests/input-gate.test.js): inputGate ----",
+    "// ---- fin inputGate ----",
+    "inputGate"
+  );
+}
+
+module.exports = { loadPlateState: loadPlateState, loadInputGate: loadInputGate };
