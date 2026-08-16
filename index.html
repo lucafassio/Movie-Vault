@@ -506,7 +506,7 @@
     getPan: function () { return pan; },
     getModo: function () { return modo; },
     rueda: function (dy, cx, cy) {
-      if (etapa !== "front") return false;
+      if (!inputGate(etapa)) return false;
       if (sobreArmario(cx, cy)) { modo = "cadena"; moverFase(-dy / (PPM * escala)); }
       else { modo = "camara"; moverPan(dy / escala); }
       pintar(); return true;
