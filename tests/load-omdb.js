@@ -24,13 +24,15 @@ function createFakeLocalStorage() {
   };
 }
 
-function loadScripts(relativePaths) {
+function loadScripts(relativePaths, options) {
   // window tiene que ser el propio sandbox porque en un browser real window === globalThis
   // el with(window) hace que la "MV" suelta resuelva contra el sandbox, que es como esta escrito js/omdb.js
   const sandbox = { localStorage: createFakeLocalStorage() };
   sandbox.window = sandbox;
-  // fetch explota a proposito: corriendo en el realm del proceso el fetch real de node esta a mano y un test distraido pegaria contra omdb de verdad
-  sandbox.fetch = function () {
+  // fetch explota a proposito por default: corriendo en el realm del proceso el fetch real de node esta a mano
+  // y un test distraido pegaria contra omdb de verdad. Los tests de la cola de reintento (Task 5) pasan su propio
+  // fetch fake por "options.fetch" para simular exito/fallo sin red.
+  sandbox.fetch = (options || {}).fetch || function () {
     throw new Error("los tests no pueden llamar a search ni a getTitle: aca fetch pega contra la api real");
   };
   relativePaths.forEach(function (relativePath) {
@@ -42,8 +44,8 @@ function loadScripts(relativePaths) {
   return sandbox.MV;
 }
 
-function loadOmdb() {
-  return loadScripts(["js/omdb.js"]).omdb;
+function loadOmdb(options) {
+  return loadScripts(["js/omdb.js"], options).omdb;
 }
 
 function loadTestData() {

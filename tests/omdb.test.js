@@ -6,6 +6,10 @@ const testData = loadTestData();
 
 const omdb = loadOmdb();
 
+function fakeResponse(data) {
+  return Promise.resolve({ json: function () { return Promise.resolve(data); } });
+}
+
 test("parseReleased convierte el formato de omdb a dd/mm/yyyy", function () {
   assert.equal(omdb.parseReleased("11 Mar 2010", "2010"), "11/03/2010");
   assert.equal(omdb.parseReleased("01 Mar 2024", "2024"), "01/03/2024");
@@ -240,4 +244,131 @@ test("clearCache vacia el cache guardado", function () {
   assert.deepEqual(fresh.readCache(), {});
   // la key no se toca al limpiar el cache, son dos cosas distintas
   assert.equal(fresh.getKey(), "abc123");
+});
+
+// --- issue #5: cola de reintento de imdbRating cuando vuelve omdb/internet ---
+
+test("getRating encola el imdbID cuando la llamada falla", function () {
+  const fresh = loadOmdb({ fetch: function () { return Promise.reject(new Error("network down")); } });
+  fresh.setKey("abc123");
+  return fresh.getRating("tt1130884").then(function (rating) {
+    assert.equal(rating, null);
+    assert.deepEqual(fresh.getPendingRatings(), ["tt1130884"]);
+  });
+});
+
+test("getRating no duplica el mismo imdbID si falla mas de una vez", function () {
+  const fresh = loadOmdb({ fetch: function () { return Promise.reject(new Error("network down")); } });
+  fresh.setKey("abc123");
+  return fresh.getRating("tt1130884").then(function () {
+    return fresh.getRating("tt1130884");
+  }).then(function () {
+    assert.deepEqual(fresh.getPendingRatings(), ["tt1130884"]);
+  });
+});
+
+test("getRating no encola nada cuando el imdbID esta ausente", function () {
+  const fresh = loadOmdb();
+  return fresh.getRating("N/A").then(function (rating) {
+    assert.equal(rating, null);
+    assert.deepEqual(fresh.getPendingRatings(), []);
+  });
+});
+
+test("retryPendingRatings saca de la cola el imdbID que se recupera y devuelve su rating", function () {
+  let attempt = 0;
+  const fresh = loadOmdb({
+    fetch: function () {
+      attempt += 1;
+      if (attempt === 1) {
+        return Promise.reject(new Error("network down"));
+      }
+      return fakeResponse({ Response: "True", imdbRating: "8.2" });
+    }
+  });
+  fresh.setKey("abc123");
+  return fresh.getRating("tt1130884").then(function (rating) {
+    assert.equal(rating, null);
+    assert.deepEqual(fresh.getPendingRatings(), ["tt1130884"]);
+    return fresh.retryPendingRatings();
+  }).then(function (recovered) {
+    assert.deepEqual(recovered, { tt1130884: 8.2 });
+    assert.deepEqual(fresh.getPendingRatings(), []);
+  });
+});
+
+test("retryPendingRatings deja en la cola el imdbID que sigue fallando", function () {
+  const fresh = loadOmdb({ fetch: function () { return Promise.reject(new Error("network down")); } });
+  fresh.setKey("abc123");
+  return fresh.getRating("tt1130884").then(function () {
+    return fresh.retryPendingRatings();
+  }).then(function (recovered) {
+    assert.deepEqual(recovered, {});
+    assert.deepEqual(fresh.getPendingRatings(), ["tt1130884"]);
+  });
+});
+
+test("retryPendingRatings no gasta cupo extra cuando la cola esta vacia", function () {
+  let calls = 0;
+  const fresh = loadOmdb({
+    fetch: function () {
+      calls += 1;
+      return fakeResponse({ Response: "True", imdbRating: "8.2" });
+    }
+  });
+  fresh.setKey("abc123");
+  return fresh.retryPendingRatings().then(function (recovered) {
+    assert.deepEqual(recovered, {});
+    assert.equal(calls, 0);
+  });
+});
+
+test("getRating no saca de la cola un imdbID cuyo reintento contesta bien pero sigue sin rating (N/A)", function () {
+  const fresh = loadOmdb({
+    fetch: function () {
+      return fakeResponse({ Response: "True", imdbRating: "N/A" });
+    }
+  });
+  fresh.setKey("abc123");
+  fresh.queuePendingRating("tt1130884");
+  return fresh.getRating("tt1130884").then(function (rating) {
+    assert.equal(rating, null);
+    // un 200 sin rating todavia no es la falla de conectividad que resuelve la cola: se queda encolado
+    assert.deepEqual(fresh.getPendingRatings(), ["tt1130884"]);
+  });
+});
+
+test("retryPendingRatings reintenta en serie, nunca dos fetch en simultaneo", function () {
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const fresh = loadOmdb({
+    fetch: function () {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          inFlight -= 1;
+          resolve({ json: function () { return Promise.resolve({ Response: "True", imdbRating: "8.2" }); } });
+        }, 0);
+      });
+    }
+  });
+  fresh.setKey("abc123");
+  fresh.queuePendingRating("tt1130884");
+  fresh.queuePendingRating("tt0114369");
+  fresh.queuePendingRating("tt0468569");
+  return fresh.retryPendingRatings().then(function (recovered) {
+    assert.equal(maxInFlight, 1);
+    assert.deepEqual(recovered, { tt1130884: 8.2, tt0114369: 8.2, tt0468569: 8.2 });
+  });
+});
+
+test("queuePendingRating y dequeuePendingRating manejan la cola sin duplicar", function () {
+  const fresh = loadOmdb();
+  fresh.queuePendingRating("tt1130884");
+  fresh.queuePendingRating("tt1130884");
+  fresh.queuePendingRating("tt0114369");
+  assert.deepEqual(fresh.getPendingRatings(), ["tt1130884", "tt0114369"]);
+  fresh.dequeuePendingRating("tt1130884");
+  assert.deepEqual(fresh.getPendingRatings(), ["tt0114369"]);
 });

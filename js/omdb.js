@@ -8,6 +8,7 @@ MV.omdb = (function () {
   const BASE_URL = "https://www.omdbapi.com/";
   const KEY_STORAGE = "movievault.omdbKey";
   const CACHE_STORAGE = "movievault.omdbCache";
+  const PENDING_STORAGE = "movievault.omdbPendingRatings";
 
   // --- parseo puro ---
 
@@ -170,6 +171,48 @@ MV.omdb = (function () {
     localStorage.removeItem(CACHE_STORAGE);
   }
 
+  // un pendiente corrupto no puede tumbar nada, se descarta y arranca vacio
+  function parsePending(text) {
+    try {
+      const parsed = JSON.parse(text || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function readPending() {
+    return parsePending(localStorage.getItem(PENDING_STORAGE));
+  }
+
+  function writePending(list) {
+    localStorage.setItem(PENDING_STORAGE, JSON.stringify(list));
+  }
+
+  // encola sin duplicar: getRating llama esto cada vez que el pedido falla, no solo la primera
+  function queuePendingRating(imdbID) {
+    if (isMissing(imdbID)) {
+      return;
+    }
+    const list = readPending();
+    if (list.indexOf(imdbID) === -1) {
+      list.push(imdbID);
+      writePending(list);
+    }
+  }
+
+  function dequeuePendingRating(imdbID) {
+    const list = readPending();
+    const next = list.filter(function (id) { return id !== imdbID; });
+    if (next.length !== list.length) {
+      writePending(next);
+    }
+  }
+
+  function getPendingRatings() {
+    return readPending();
+  }
+
   // el plan gratuito son 1000 llamadas por dia: cacheamos por clave para que reabrir la pagina o repetir el panel de asserts no queme cupo
   function request(params, cacheKey) {
     const cache = readCache();
@@ -225,19 +268,49 @@ MV.omdb = (function () {
 
   // unico aporte de omdb en el pipeline nuevo: tmdb no tiene el puntaje de imdb, su vote_average es otro numero (Shutter Island: 8.197 contra 8.2)
   // reusa el mismo cacheKey "i:<imdbID>" que getTitle, asi un titulo ya visto no gasta una segunda llamada del cupo diario
+  // si falla (sin internet, omdb caido, sin key) encola el imdbID para reintentar cuando vuelva el evento "online";
+  // si contesta bien lo saca de la cola por si venia de un fallo anterior
   function getRating(imdbID) {
     if (isMissing(imdbID)) {
       return Promise.resolve(null);
     }
     return request({ i: imdbID, plot: "short" }, "i:" + imdbID).then(function (raw) {
-      return parseRating(raw.imdbRating);
+      const rating = parseRating(raw.imdbRating);
+      // solo saca de la cola cuando el reintento resuelve un numero real: un 200 con imdbRating "N/A"
+      // (pelicula sin votos todavia) no es la falla de conectividad que este encolamiento resuelve
+      if (rating !== null) {
+        dequeuePendingRating(imdbID);
+      }
+      return rating;
     }).catch(function () {
       // el puntaje es un extra: si omdb no contesta o no hay key, la ficha igual se muestra con el rating vacio
+      queuePendingRating(imdbID);
       return null;
     });
   }
 
-  return {
+  // reintenta cada imdbID pendiente con el mismo getRating (mismo cupo, sin prioridad especial) y devuelve
+  // los que se recuperaron; los que siguen fallando quedan en la cola para el proximo evento "online"
+  // en serie y no en paralelo, mismo criterio que el panel de asserts de api-test.html: una racha larga
+  // sin internet puede acumular varios pendientes, y el evento "online" no debe dispararlos todos juntos
+  // contra el cupo diario de omdb
+  function retryPendingRatings() {
+    const ids = readPending();
+    const recovered = {};
+    return ids.reduce(function (chain, imdbID) {
+      return chain.then(function () {
+        return getRating(imdbID).then(function (rating) {
+          if (rating !== null) {
+            recovered[imdbID] = rating;
+          }
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      return recovered;
+    });
+  }
+
+  const api = {
     isMissing: isMissing,
     parseReleased: parseReleased,
     parseRuntime: parseRuntime,
@@ -257,6 +330,19 @@ MV.omdb = (function () {
     clearCache: clearCache,
     search: search,
     getTitle: getTitle,
-    getRating: getRating
+    getRating: getRating,
+    queuePendingRating: queuePendingRating,
+    dequeuePendingRating: dequeuePendingRating,
+    getPendingRatings: getPendingRatings,
+    retryPendingRatings: retryPendingRatings
   };
+
+  // en browser real, reintenta la cola sola cuando vuelve la conexion -- no hace falta que el usuario rebusque la pelicula
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("online", function () {
+      retryPendingRatings();
+    });
+  }
+
+  return api;
 })();
