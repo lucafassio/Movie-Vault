@@ -198,6 +198,7 @@
 (function () {
   "use strict";
 
+  // ---- fase pura (ver tests/paternoster.test.js): plateState ----
   // ---- mapeo, medido sobre la imagen alta horneada desde cam-travel ----
   var PPM = 1624.6153;          // px por metro
   var PX_Z0 = 3402.9151;        // fila donde cae world z = 0, en la imagen alta
@@ -245,6 +246,39 @@
   // el arranque es fase 0 y es tope duro.
   var FASE_INICIO = 0;
   var CLAVE = "movievault.lab.paternoster";
+
+  // sin tocar dom: dada la posicion de una placa en el loop de la cadena, calcula
+  // su pose (altura, giro, sombra). pintar() solo aplica este resultado al dom.
+  function plateState(i, fase) {
+    var s = (i * PASO + fase) % L_TOTAL;
+    if (s < 0) s += L_TOTAL;
+    if (s > L_TOTAL - MARGEN) s -= L_TOTAL;
+    var dentro = s >= -MARGEN && s <= L_RECTA + MARGEN;
+    if (!dentro) return { s: s, dentro: false };
+    var top = PX_Z0 - (Z_TOP - s) * PPM - PLACA_H / 2 - ABERT_TOP;
+    var giro = 0, origen = "50% 50%", som = 0, somAbajo = false;
+    if (s < S_LIM_SUP + S_PRE) {
+      // sombra-sup deshabilitada a proposito: solo se saca la del arco de
+      // arriba, la de abajo (somAbajo) sigue igual.
+      if (s < S_LIM_SUP) {
+        // sale por arriba: pivota en su cara de arriba, la que ya entro en la madera
+        giro = 90 * Math.min(1, (S_LIM_SUP - s) / ARCO);
+        origen = "50% 0%";
+      }
+    } else if (s > S_LIM_INF - S_PRE) {
+      som = (s - (S_LIM_INF - S_PRE)) / (S_PRE + ARCO);
+      somAbajo = true;
+      if (s > S_LIM_INF) {
+        // sale por abajo: pivota en su cara de abajo
+        giro = -90 * Math.min(1, (s - S_LIM_INF) / ARCO);
+        origen = "50% 100%";
+      }
+    }
+    som = som <= 0 ? 0 : Math.sqrt(Math.min(1, som));
+    var girando = giro !== 0;
+    return { s: s, dentro: true, top: top, giro: giro, origen: origen, girando: girando, som: som, somAbajo: somAbajo };
+  }
+  // ---- fin plateState ----
 
   var $ = function (id) { return document.getElementById(id); };
   var etapa = "room";           // room | viaje | front
@@ -296,49 +330,25 @@
     var visibles = 0;
     for (var i = 0; i < N; i++) {
       var p = placas[i];
-      var s = (i * PASO + fase) % L_TOTAL;
-      if (s < 0) s += L_TOTAL;
-      if (s > L_TOTAL - MARGEN) s -= L_TOTAL;
-      p.s = s;
-      var dentro = s >= -MARGEN && s <= L_RECTA + MARGEN;
-      if (dentro !== p.visible) {
-        p.el.style.display = dentro ? "block" : "none";
-        p.visible = dentro;
+      var st = plateState(i, fase);
+      p.s = st.s;
+      if (st.dentro !== p.visible) {
+        p.el.style.display = st.dentro ? "block" : "none";
+        p.visible = st.dentro;
       }
-      if (dentro) {
-        var top = PX_Z0 - (Z_TOP - s) * PPM - PLACA_H / 2 - ABERT_TOP;
-        var giro = 0, origen = "50% 50%", som = 0, somAbajo = false;
-        if (s < S_LIM_SUP + S_PRE) {
-          // sombra-sup deshabilitada a proposito: solo se saca la del arco de
-          // arriba, la de abajo (somAbajo) sigue igual.
-          if (s < S_LIM_SUP) {
-            // sale por arriba: pivota en su cara de arriba, la que ya entro en la madera
-            giro = 90 * Math.min(1, (S_LIM_SUP - s) / ARCO);
-            origen = "50% 0%";
-          }
-        } else if (s > S_LIM_INF - S_PRE) {
-          som = (s - (S_LIM_INF - S_PRE)) / (S_PRE + ARCO);
-          somAbajo = true;
-          if (s > S_LIM_INF) {
-            // sale por abajo: pivota en su cara de abajo
-            giro = -90 * Math.min(1, (s - S_LIM_INF) / ARCO);
-            origen = "50% 100%";
-          }
+      if (st.dentro) {
+        if (st.origen !== p.origen) { p.el.style.transformOrigin = st.origen; p.origen = st.origen; }
+        if (st.girando !== p.girando) { p.el.classList.toggle("girando", st.girando); p.girando = st.girando; }
+        if (st.som !== p.som || st.somAbajo !== p.somAbajo) {
+          var txt = st.som.toFixed(3);
+          p.el.style.setProperty("--som-sup", st.somAbajo ? "0" : txt);
+          p.el.style.setProperty("--som-inf", st.somAbajo ? txt : "0");
+          p.som = st.som; p.somAbajo = st.somAbajo;
         }
-        if (origen !== p.origen) { p.el.style.transformOrigin = origen; p.origen = origen; }
-        var girando = giro !== 0;
-        if (girando !== p.girando) { p.el.classList.toggle("girando", girando); p.girando = girando; }
-        som = som <= 0 ? 0 : Math.sqrt(Math.min(1, som));
-        if (som !== p.som || somAbajo !== p.somAbajo) {
-          var txt = som.toFixed(3);
-          p.el.style.setProperty("--som-sup", somAbajo ? "0" : txt);
-          p.el.style.setProperty("--som-inf", somAbajo ? txt : "0");
-          p.som = som; p.somAbajo = somAbajo;
-        }
-        p.giro = giro;
-        p.el.style.transform = "translate3d(0," + top.toFixed(2) + "px,0)"
-          + (giro ? " rotateX(" + giro.toFixed(2) + "deg)" : "");
-        if (s >= 0 && s <= L_RECTA) visibles++;
+        p.giro = st.giro;
+        p.el.style.transform = "translate3d(0," + st.top.toFixed(2) + "px,0)"
+          + (st.giro ? " rotateX(" + st.giro.toFixed(2) + "deg)" : "");
+        if (st.s >= 0 && st.s <= L_RECTA) visibles++;
       }
     }
     return visibles;
@@ -412,9 +422,17 @@
   $("hotspot").addEventListener("click", irAFront);
   $("volver").addEventListener("click", irARoom);
 
+  // ---- fase pura (ver tests/input-gate.test.js): inputGate ----
+  // unico gate de interactividad: solo la etapa "front" recibe wheel/pointer/keydown.
+  // durante "room" y "viaje" ninguno de los 4 listeners de abajo debe actuar.
+  function inputGate(etapa) {
+    return etapa === "front";
+  }
+  // ---- fin inputGate ----
+
   // ---- entrada ----
   window.addEventListener("wheel", function (e) {
-    if (etapa !== "front") return;
+    if (!inputGate(etapa)) return;
     e.preventDefault();
     if (sobreArmario(e.clientX, e.clientY)) {
       modo = "cadena";
@@ -427,7 +445,7 @@
 
   var arrastrando = false, ultimoY = 0, arrastreEnArmario = false;
   window.addEventListener("pointerdown", function (e) {
-    if (etapa !== "front") return;
+    if (!inputGate(etapa)) return;
     if (e.target.closest("#volver, #dbg")) return;
     arrastrando = true; ultimoY = e.clientY;
     arrastreEnArmario = sobreArmario(e.clientX, e.clientY);
@@ -435,7 +453,7 @@
   });
   window.addEventListener("pointermove", function (e) {
     if (!arrastrando) {
-      if (etapa === "front") {
+      if (inputGate(etapa)) {
         var m = sobreArmario(e.clientX, e.clientY) ? "cadena" : "camara";
         if (m !== modo) { modo = m; sucio = true; }
       }
@@ -452,7 +470,7 @@
 
   // unica tecla: Esc sale de la escena de la estanteria
   window.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape" || etapa !== "front") return;
+    if (e.key !== "Escape" || !inputGate(etapa)) return;
     e.preventDefault();
     irARoom();
   });
@@ -488,7 +506,7 @@
     getPan: function () { return pan; },
     getModo: function () { return modo; },
     rueda: function (dy, cx, cy) {
-      if (etapa !== "front") return false;
+      if (!inputGate(etapa)) return false;
       if (sobreArmario(cx, cy)) { modo = "cadena"; moverFase(-dy / (PPM * escala)); }
       else { modo = "camara"; moverPan(dy / escala); }
       pintar(); return true;
